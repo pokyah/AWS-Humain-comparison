@@ -1,0 +1,553 @@
+---
+title: Quantitative intercomparison of 2 years hourly records of temperature and relative humidity measured by 2 different types of professional-grade automatic weather stations at Humain, Belgium.
+author: 'Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be'
+date: '\`r format(Sys.Date(), " %d-%m-%Y")`\'
+output:
+  pdf_document:
+    toc: no
+  html_document:
+    theme: default
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+# Defining the .Rmd settings - https://github.com/yihui/knitr/issues/277
+knitr::opts_chunk$set(
+  echo = TRUE,
+  root.dir = "~/agrometeor/agrometeor-shiny/agrometeor-comparison-app")
+```
+
+```{r source, include=FALSE}
+  # Avoid interference with old variables by cleaning the Global Environment
+  rm(list=ls(all=TRUE))
+  
+  # Set the wd according to root folder of current file (note that we work with a docker container ==> the ~home folder is always the same)
+  #wd <- "~/agrometeor/agrometeor-shiny/agrometeor-comparison-app"
+  #setwd(wd)
+  
+  # loading the pacman library to manage all the other libraries
+  if (!require("pacman")) install.packages("pacman")
+  library(pacman)
+  
+  # loading al lthe required packages with pacman
+  requiredPackages <- read.csv("~/agrometeor/agrometeor-shiny/agrometeor-comparison-app/settings/requiredPackages.csv", quote = "", sep = ",", header=TRUE, stringsAsFactors=FALSE)
+  p_load( char=requiredPackages$packageName, character.only=TRUE )
+  p_loaded()
+  
+  # Dynamic Sourcing of all the utility functions
+  source("~/agrometeor/agrometeor-global-utilities/source_files_recursively.fun.R")
+  source_files_recursively.fun("~/agrometeor/agrometeor-shiny/agrometeor-comparison-app/functions")
+  source_files_recursively.fun("~/agrometeor/agrometeor-public")
+  
+  # Sourcing of the file containing all the functions for the analysis
+  source("~/agrometeor/agrometeor-shiny/agrometeor-comparison-app/functions/helpers.R")
+```
+
+```{r getData, include=FALSE}
+# Retrieveing the user_token
+user_token.chr <- read_lines("~/agrometeor/.user_settings/userToken.txt", skip=0, n_max=1)
+
+## get the list of all Pameseb active stations to populate the 2 stations inputs.
+stations.df <- get_from_agromet_API.fun(
+  user_token.chr,
+  table_name.chr = "station",
+  stations_ids.chr = "all"
+  )
+stations.df <- prepare_agromet_API_data.fun(stations.df)
+View(stations.df)
+
+records_pameseb.df <- prepare_agromet_API_data.fun(
+  get_from_agromet_API.fun(
+    user_token.chr = user_token.chr,
+    table_name.chr = "cleandata",
+    stations_ids.chr = "61",
+    sensors.chr = "tsa, ens, vvt, sunrise, sunset",
+    dfrom.chr = "2015-11-01",
+    dto.chr = "2017-11-01"
+  )
+)
+records_irm_df <- prepare_agromet_API_data.fun(get_from_agromet_API.fun(
+  user_token.chr = user_token.chr,
+  table_name.chr = "get_rawdata_irm", 
+  stations_ids.chr = "1000",
+  sensors.chr = "tsa, ens, vvt, sunrise, sunset",
+  dfrom.chr = "2015-11-01",
+  dto.chr = "2017-11-01"
+))
+
+records.df <- subset_data(
+  data.df = bind_rows(records_pameseb.df, records_irm_df),
+  sensor.chr = "tsa",
+  dateRange.chr = c(as.Date("2015-11-01"),as.Date("2017-11-01")),
+  filter.chr ="no_filter"
+)
+
+# filter for eventual NA values remaining at ens et vvt
+  station1.df <- records.df %>% 
+    dplyr::filter(sid== unique(records.df$sid)[1]) %>%
+    dplyr::filter(!is.na(vvt)) %>%
+    dplyr::filter(!is.na(ens))
+  
+  station2.df <- records.df %>%
+    dplyr::filter(sid== unique(records.df$sid)[2]) %>%
+    dplyr::filter(!is.na(vvt)) %>%
+    dplyr::filter(!is.na(ens))
+  
+  station2.df <- semi_join(station2.df, station1.df, by="mtime")
+  station1.df <- semi_join(station1.df, station2.df, by="mtime")
+  
+  records.df <- bind_rows(station1.df, station2.df)
+  check_NA(records.df)
+```
+
+```{r descriptives, include=FALSE}
+tsa_stats.df <- compute_stats(input_records.df = records.df, sensor_name.chr = "tsa")
+plu_stats.df <- compute_stats(input_records.df = records.df, sensor_name.chr = "vvt")
+ens_stats.df <- compute_stats(input_records.df = records.df, sensor_name.chr = "ens")
+```
+
+```{r}
+regCleanSum.df <- compute_reg(input_records_wide.df= make_wide(records.df, "tsa"), output="regSum")
+regInfoSm.df <- compute_reg(input_records_wide.df= make_wide(records.df, "tsa"), output="infoSum")
+```
+
+```{r blandAltman, include=FALSE}
+#baSum.df <- compute_ba(input_records_wide.df= make_wide(records.df, "tsa"), output="table")
+baPlot.l <- compute_ba(input_records_wide.df= make_wide(records.df, "tsa"), output="plot")
+baStats.df <- bland.altman.stats(
+  (make_wide(records.df, "tsa"))[2][[1]],
+  (make_wide(records.df, "tsa"))[3][[1]]
+)
+```
+
+```{r correctionModel, include= FALSE}
+records.df <- records.df %>% mutate(month = as.factor(month(mtime)))
+scatter_vvt_ens_tsa.l <- plotly::plot_ly(
+    data = records.df,
+    x = ~tsa,
+    y = ~ens,
+    z = ~vvt,
+    color = ~month,
+    colors = ggplotColours(n=12),
+    marker = list(
+      size = 3
+    )
+  )%>%
+  layout(scene = list(xaxis = list(title = 'tsa'),
+                     yaxis = list(title = 'ens'),
+                     zaxis = list(title = 'vvt')))
+
+tsa_wide.df <- make_wide(records.df, "tsa")
+colnames(tsa_wide.df) <- c("mtime", "tsa_31", "tsa_64")
+ens_wide.df <- make_wide(records.df, "ens")
+colnames(ens_wide.df) <- c("mtime", "ens_31", "ens_64")
+vvt_wide.df <- make_wide(records.df, "vvt")
+colnames(vvt_wide.df) <- c("mtime", "vvt_31", "vvt_64")
+tsa_diffs.df <- data.frame(baStats.df$diffs)
+colnames(tsa_diffs.df) <- "tsa_diff"
+months.df <- data.frame(as.factor(month(tsa_wide.df$mtime)))
+colnames(months.df) <- "month"
+model.df <- bind_cols(ens_wide.df[2], vvt_wide.df[2], tsa_diffs.df, months.df )
+check_NA(model.df)
+
+# usefull library available here https://mlr-org.github.io/mlr-tutorial
+library(mlr)
+# create the task
+regr.task = mlr::makeRegrTask(
+  id = "regr",
+  data = model.df,
+  target = "tsa_diff"
+)
+
+# get some information about the task
+getTaskDesc(regr.task)
+
+# remove useless feature : month
+regr.task <- dropFeatures(regr.task, c("month"))
+
+# create the learner
+resp.regr.lrn = mlr::makeLearner(
+  cl = "regr.lm",
+  id = "re.regr.lm",
+  predict.type = "response" #could also be "se"
+)
+
+se.regr.lrn = mlr::makeLearner(
+  cl = "regr.lm",
+  id = "re.regr.lm",
+  predict.type = "se"
+)
+
+
+# train the resp learner to create the model
+resp.regr.mod = train(resp.regr.lrn, regr.task)
+
+# train the se learner to create the model
+se.regr.mod = train(se.regr.lrn, regr.task)
+
+# get infos about the model
+resp.regr.mod$learner
+resp.regr.mod$features
+
+# predict the values at each records
+resp.task.pred = predict(
+  object = resp.regr.mod,
+  task = regr.task
+)
+
+se.task.pred = predict(
+  object = se.regr.mod,
+  task = regr.task
+)
+
+# inspect the difference between the true, predicted and SE values
+head(getPredictionTruth(task.pred))
+head(getPredictionResponse(task.pred))
+head(getPredictionSE(se.task.pred))
+
+# Visualising the prediction
+resp.pred.plot <- plotLearnerPrediction(resp.regr.lrn, task = regr.task)
+resp.pred.plot
+
+# create the prediction grid
+graph_reso <- 0.5
+axis_x <- seq(min(model.df$ens_31), max(model.df$ens_31), by = graph_reso)
+axis_y <- seq(min(model.df$vvt_31), max(model.df$vvt_31), by = graph_reso)
+tsadiff_lm_surface <- expand.grid(ens_31 = axis_x,vvt_31 = axis_y,KEEP.OUT.ATTRS = F)
+
+# predict the values on the prediction grid
+grid.pred <- predict(
+  object = resp.regr.mod,
+  newdata = tsadiff_lm_surface
+)
+# prediction_data <- as.vector(prediction$data[[1]])
+# names(prediction_data) <- seq(1, length(prediction_data), by=1)
+tsadiff_lm_surface$tsa_diff <- as.vector(grid.pred$data[[1]])
+tsadiff_lm_surface <- acast(tsadiff_lm_surface, vvt_31 ~ ens_31, value.var = "tsa_diff") #y ~ x
+
+#::help:: https://community.plot.ly/t/3d-scatter-3d-regression-line/4149/6
+#::help:: https://plot.ly/r/line-and-scatter/
+temp_plot <- plot_ly(
+  data = model.df, 
+  x = ~ens_31, 
+  y = ~vvt_31, 
+  z = ~tsa_diff,
+  marker = list(
+    size = 3,  
+    color = ~month,
+    colors = ggplotColours(n=12)
+  )
+  ) %>% 
+  add_markers() %>% 
+  add_surface(
+    z = tsadiff_lm_surface,
+    x = axis_x,
+    y = axis_y,
+    type = "surface"
+  )
+
+temp_plot
+```
+
+## Idea for correction model
+
+So the Bland-Altman analysis revealed that Pameseb is biased compared to IRM. This was expected because of the lack of ventilation system at Pameseb. The higher the mean temperature, the higher the the difference. So could we apply a correction model to Pameseb in order to make this effect disappear ? We know that the variables that could affect the temperature measured in a non ventiled shelter are the irradiance and the wind speed. Let's build a [3D scatter plot](https://www.r-bloggers.com/3d-plots-with-ggplot2-and-plotly/) for temperature difference against windspeed and irradiance. This allows to build a multiple regression model to explain temperature difference by windspeed and irradiance.
+3 steps for this model : 
+  1. Compute
+2. Evaluate (p-value, R², etc)
+3. Make prediction. 
+of course, we will need to validate our model by a k-fold validation process. 
+
+This model can then be used as follows : 
+  * take the ens and vvt at Pameseb and inject in the model to get the corresponding expected temperature difference. 
+* Correct the Pameseb observed temperature by substracting the expected temperature difference
+
+The validation process can be performed on various versions of the model (subset of original dataset that only keeps the focus on day, or high irradiance, or ... ?). We can then compare the various metrics of the model to know which ones works the best.
+Once best model found, lets apply it and recompare with BA to see the (hopefully) major improvment
+
+
+## Preamble
+* This report is still in major revision phase. __Consider it as a first draft version__.  
+* This document was generated using R software with the [knitr library](https://deanattali.com/2015/03/24/knitrs-best-hidden-gem-spin/) 
+* The interactive plots are rendered from ggplot by [plotly](https://plot.ly).  
+* You can also interactively explore the data using the [Agrometeor Station Comparison tool Shiny App] using your own Agromet API key.
+
+Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html).
+
+
+## Abstract
+In the context of the [Agromet project](http://www.cra.wallonie.be/fr/agromet) which aims to provide hourly gridded (1km²) weather datasets for agricultural decision support system, the integration of two different networks of automatic weather station (AWS) would improve the quality of the gridded data. This paper investigates the potential inter-operability (i.e. no difference between the measurements) of hourly air temperature and relative humidity datasets originating from two different types of automatic weather station instrumentations. In order to assess the agreement level between two types of professional-grade automatic weather stations, previous [work](http://onlinelibrary.wiley.com/doi/10.1002/wea.2158/pdf) by Geoff Jenkins described a comparison method based on regression model correlation study. However, as demonstrated by [Giavarina](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4470095/), correlation studies is not appropriate to study the differences. The alternative [Bland-Altman analysis](https://www-users.york.ac.uk/~mb55/meas/ba.pdf) proposed by the authors was used in this study. We investigated the agreement level between two sets of hourly temperature and relative humidity measurements recorded during a two years long period at the location of Humain in Belgium by an AWS of the RMi and another one of the CRA-W. Our study has revealed that the CRA-W AWS tends to significantly over-estimate the temperature compared to the RMI station, especially during periods of low wind and high irradiance. This has lead us to conclude that prior to the integration of the two networks in the spatialisation process, a correction model needs to be applied to the temperature data produced by the CRA-W AWS network.
+
+## Idea for correction model
+
+So the Bland-Altman analysis revealed that Pameseb is biased compared to IRM. This was expected because of the lack of ventilation system at Pameseb. The higher the mean temperature, the higher the the difference. So could we apply a correction model to Pameseb in order to make this effect disappear ? We know that the variables that could affect the temperature measured in a non ventiled shelter are the irradiance and the wind speed. Let's build a [3D scatter plot](https://www.r-bloggers.com/3d-plots-with-ggplot2-and-plotly/) for temperature difference against windspeed and irradiance. This allows to build a multiple regression model to explain temperature difference by windspeed and irradiance.
+3 steps for this model : 
+1. Compute
+2. Evaluate (p-value, R², etc)
+3. Make prediction. 
+of course, we will need to validate our model by a k-fold validation process. 
+
+This model can then be used as follows : 
+* take the ens and vvt at Pameseb and inject in the model to get the corresponding expected temperature difference. 
+* Correct the Pameseb observed temperature by substracting the expected temperature difference
+
+The validation process can be performed on various versions of the model (subset of original dataset that only keeps the focus on day, or high irradiance, or ... ?). We can then compare the various metrics of the model to know which ones works the best.
+Once best model found, lets apply it and recompare with BA to see the (hopefully) major improvment
+
+
+## Introduction 
+
+In the context of a more efficient use of crop protection produts imposed by the European directive 2009/128/CE (::ref::), agricultural warning systems play a key role. These alert systems rely on crop monitoring models that use weather data as main input. Due to the difficulty to measure meteorological parameters at high spatial resolution (at the parcel scale), gridded data produced by spatial interpolation of data produced by Automatic Weather Stations (AWS) networks improve the relevance of these alert systems (::ref::), and hence improve the decrease of the use of crop protection products. Increasing the density of the the physical AWS network, the quality of the gridded (i.e. spatialised) data is significantly improved(::ref::). The Agromet project, lead by the CRA-W aims to develop and run a platform delivering gridded weather data for agriculture. The CRA-W owns its AWS Network named "Pameseb" which covers the entire Region of Wallonia (about 16 000 km square ) with 40 stations which represents a density of 1 AWS for every 400 kmsquare (se picture 1. ::map::). To increase the density of the physical AWS network introduced in the gridded data production procedure, the feasability of ::complementaring:: the number of AWS from the Pameseb network with a selection of AWS operated by the Royal Meteorologial Institute (belgian official weather service) is investigated. 
+
+
+The [Agromet project](http://www.cra.wallonie.be/fr/agromet) lead by the CRA-W aims to provide hourly gridded (1km²) weather datasets for agricultural decision support system. The CRA operates will be used as input of spatialisation models based on geo-statistical algorithms (Kriging, Multiple Regressions, Artificial Neural Networks, etc.). 
+
+
+Before combining datasets produced by two different networks of AWS that run different types of instrument, it is necessary to make the measurements comparable. To achieve this, one needs, for each choosen weather parameter, to assess if the two stations produce the same measurements for the same meteorological conditions. This can be addressed by running a comparative study between two representative stations of each of the two networks on a single location were meteorological and environmental conditions are strictly the same. The comparative study must collect data over a sufficiently long period of time so that it maximizes the incorporation of the wider extent of possible meteorological conditions that could be met in the region. 
+
+In order to asses the agreement of the two stations, a classical correlation study computed with one station as predictor and the other as response variable is a widely adopted method (::ref::). However, as demonsrated by [Giavarina](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4470095/), this is suited to study the relationship between two variables and not the differences. [Bland and Altman](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4470095/pdf/bm-25-141.pdf) have developed an analysis that quantifies the agreement between two quantitative sets of measurements of the same parameter. Their graphical method plots the differences between the two techniques against the averages of the two techniques. It shows horizontal lines at the mean difference and at the limits of agreement, which are defined as the mean difference plus and minus 1.96 times the standard deviation of the differences (::ref::). 
+
+The Bland-Altman plot is useful to reveal a relationship between the differences and the magnitude of measurements (examples 1 & 2), to look for any systematic bias
+
+95% CI of mean difference*: the [95% Confidence Interval](https://www.mathsisfun.com/data/confidence-interval.html) of the mean difference illustrates the magnitude of the systematic difference. If the line of equality is not in the interval, there is a significant systematic difference.
+95% CI of limits of agreement: shows error bars representing the 95% confidence interval for both the upper and lower limits of agreement.
+The limits of agreement (LoA) are defined as the mean difference ± 1.96 SD of differences. If these limits do not exceed the maximum allowed difference between methods Δ, the two methods are considered to be in agreement and may be used interchangeably.
+
+This paper presents and discuss our ::comparative:: method that uses these two approaches to assess if stations from the RMI network can be integrated with stations from the Pameseb network to produce gridded meteorological data for agricultural purposes in Wallonia. This comparative study was conducted on hourly measurements produced by solar radiation, air temperature, and relative humidity sensors acquired for a period of two years (2015-11-01 - 2017-11-01) at the location of Humain (50.19362 deg N, 5.25536 deg E). We were not interested in rain gauge measurements comparison as the Agromet platform will use rain radar data. 
+
+## Material and Methods
+The two stations are installed at Humain - 50.19362degN, 5.25536degE (291 m a.s.l) in an ::open location:: choosen comformly to the World Meteorological Organization (WMO) guidelines (::ref::). The Pameseb Network Station (PNS) is classified ::classNumber:: and the RMI Network Station (RNS) is classified ::classNumber::.  Since the Agromet project spans agricultural meteorology, the comparison was restricted to the weather parameters used as inputs in crop monitoring models. These parameters are :  
+* Air Temperature (AT - units = celsius degress),
+* Rainfall (RF - units = millimeters),
+* Relative Humidity (RH - units = percentages),
+* Solar Radiation (SR - units = watts per square meter)
+
+### 1. Instruments and data acquisition
+
+The PNS and the RNS are not equipped with exactly the same sensor models and are not assembled ::with the same design::. Picture 1. shows the design differences of the PNS and RNS. The ::main:: difference concerns the radiation screen. While the RNS is equipped with a mechanically ventiled standard Stevenson Screen (::ref::), the PNS is equipped with a naturally ventilated custom screen ::significantly smaller::. Table 1. presents the comparison of both the sensors references and capabilities for PNS and RNS.
+
+
+|     	| AT                                                                                                          	| RF                                                                                                                      	| HR                                                                                                          	| SR                      	|
+|-----	|-------------------------------------------------------------------------------------------------------------	|-------------------------------------------------------------------------------------------------------------------------	|-------------------------------------------------------------------------------------------------------------	|-------------------------	|
+| PNS 	| Vaisala / HMP155, abri "fait-maison" ventilé,naturellement + présence d'une chaussette en tissu genre tulle 	| R.M. Young / 52203-20 (Pluviomètre à augets, surface du,réceptacle 200 cmsquare, volume de l'auget : 0,1mm de précipitation) 	| Vaisala / HMP155, abri "fait-maison" ventilé,naturellement + présence d'une chaussette en tissu genre tulle 	| Kipp & Zonen / SP Lite2 	|
+| RNS 	|                                                                                                             	|                                                                                                                         	|                                                                                                             	|                         	|  
+
+
+Regarding the purpose of the study, we need to insure that the inherent differences in network management and maintainance (that could potentially lead to significant differences in the measurements) are respected within the context of an inter-comparison operated at a single location. This is why the two stations were voluntary not maintained in the exact same way during the period of the study.  
+The PNS station is calibrated ::this way:: while the RNS stations is calibrated ::this way:: 
+
+Table 2. presents the difference in the ::measuring rates:: of AT, RF, RH and SR for PNS and RNS: 
+
+|     	| AT                          	| RF                      	| HR                         	| SR                     	|
+|-----	|-----------------------------	|-------------------------	|----------------------------	|------------------------	|
+| PNS 	| measuring every 10 minutes  	| measuring every 0.1 mm  	| measuring every 10 minutes 	| measuring every minute 	|
+| RNS 	|                             	|                         	|                            	|                        	|
+
+
+The PNS measurements are locally recorded on a *Gme/Easylog 3000* data-logger. The data-logger is programmed in such a manner that every hour, an hourly mean of the last measurements is computed for each sensor, referenced as an *observation* (obs), and transmitted over the GPRS network to the Pameseb server were the raw data are stored in a mysql db. 
+
+The RNS measurements ::todo:
+
+As the two stations transmit an observation at each hour of the day, the two datasets present the same amount of synchronised observations.
+
+
+### 2. Data preparation
+
+Both datasets were checked by a validation prodecure ::describe plausibility check, etc for PNS and RNS::. All the data manipulation and analysis described in the present study were performed on these cleaned datasets using open-source R software(::ref::).  
+
+As the stations have been installed at different times in the past, it was necessary to filter the full historical dataset of each of the two stations to only ::retain observations recorded during the longest common range of dates::. 
+
+Moreover, to avoid over-representation of potential seasonal effects, datasets were again filtered to ::go from one the datet to exactly the same in the year::.  
+
+From this filtering step, results the period of interest of the present study which is *(format YYYY-MM-DD)* from __`r toString(min(all_records.df$timeUTC))`__  to __`r toString(max(all_records.df$timeUTC))`__ .
+
+Finally, the two ::date-filtered:: historical datasets were combined in a single PNS-RNS dataset (PR_dat) by joining observations matching their time of record. 
+
+### 3. Data comparison
+
+The ::figure 2:: presents the comparison procedure workflow used in this paper. This procedure consists to :  
+1. compute the summary statistics (max, min, mean, stdev, variance and quantiles of the measured values of the sensor),
+2. produce the various data visualisation plots (hourly measured values of the sensor over the measurement period, distribution of the measured values of the sensor),
+3. produce the scatter plot of the relationship between the measured values of the sensor of PNS and those from the RNS.
+4. from this scatter plot, is computed, along with its coefficents, a linear regression model that describes the relationship between the measured values of the PNS sensor as the predictor and the RNS sensor as the response variable. 
+5. ::a Bland-Altman plot analysis is also performed using the R [BlandAltmanLeh](https://cran.r-project.org/web/packages/BlandAltmanLeh/BlandAltmanLeh.pdf) package::
+
+Each sensor was submitted to this comparison procedure. This comparison was performed on all the values of each sensor of the PR_dat. ::These are referenced as full comparisons (FC)::.
+
+Because of the ::important:: difference in the design of the screens of PNS and RNS, it has been judged pertinent to investigate if the temperature sensors show significant difference in their measurements. It is expected that the PNS measures warmer temperatures than RNS since the former is not equipped of a mechanical ventilation system. This should be more significant during hours of high effect of the solar radiation :
+
+* during hours of the day rather than hours of the night
+* during hours when the received solar radiation is high and the wind speed is low :add WS above::
+* during hours of high air temperature
+
+To test this hypothesis of a ::warmer:: PNS screen, the comparison procedure was repeated on 3 subsets of the TA values of PR_dat respectively representing each of these 3 aforementioned situations : 
+* sunrise time < time observation < sunset time - referenced as AT daytime comparison (AT_DTC)  
+* SR(obs) > q90(SR(PR_dat)) && WS observation < q10(WS(PR_dat)) - referenced as AT high radiation low wind comparison (AT_HRLWC)  
+* AT(obs) > q99(AT(PR_dat)) - referenced as AT high temperature comparison (AT_HTC)  
+
+As the present study focuses on the potential difference ::between __measured__ data::, no temporal interpolation of eventually missing data were computed. For each sensor, if an observation of one of the two stations contains a missing value, the observation is rejected from the comparison procedure.  
+
+## Results
+
+The figure 2 shows the records of the 2 year time series of each of the 3 analysed sensors (AT, RH and SR) for both PNS and RNS.
+
+```{r AT_RH_SR_time_series, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+AT <- comparisons.l$all_records_comparison_analytics.l$tsa$sensor_plots.l$time
+RH <- comparisons.l$all_records_comparison_analytics.l$hra$sensor_plots.l$time
+SR <- comparisons.l$all_records_comparison_analytics.l$ens$sensor_plots.l$time
+
+ggarrange(AT, RH, SR,
+         labels=c("Air Temperature", "Relative Humidity", "Solar Radiation"),
+         ncol=1,
+         nrow=3
+        )
+```
+::improve plots and describe globally::
+
+### AT
+
+The summary statistics of the comparison of the full AT_PR_dat (FC) and its 3 subsets resulting comparisons (DTC, HRLWC and HTC) are presented in table 3 :
+
+```{r AT_sumStats, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+kable(comparisons.l$all_records_comparison_analytics.l$tsa$sensor_summary.df[-c(1,3,4,5,9,10,12)])
+kable(comparisons.l$day_only_comparison.l$tsa$sensor_summary.df[-c(1,3,4,5,9,10,12)])
+kable(comparisons.l$q10vvt_ens_q90_comparison_analytics.l$tsa$sensor_summary.df[-c(1,3,4,5,9,10,12)])
+kable(comparisons.l$q99tsa_comparison_analytics.l$tsa$sensor_summary.df[-c(1,3,4,5,9,10,12)])
+```
+
+Table 3 indicates that the mean measured AT of PNS is higher than the one of RNS for each of the 4 comparisons. The difference between the means ::compute these differences :: is more important for the 3 comparisons ::aimed at testing the potential effect of the absence of a mechanical ventilation system:: for the PNS design.
+
+
+##### Regression Model between PNS and RNS  
+```{r AT_regMod, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+AT_FC <- comparisons.l$all_records_comparison_analytics.l$tsa$sensor_scatter.l$Humain_Humain.IRM
+AT_DT <- comparisons.l$day_only_comparison.l$tsa$sensor_scatter.l$Humain_Humain.IRM
+AT_DT_LWHR <- comparisons.l$q10vvt_ens_q90_comparison_analytics.l$tsa$sensor_scatter.l$Humain_Humain.IRM
+AT_HT <- comparisons.l$q99tsa_comparison_analytics.l$tsa$sensor_scatter.l$Humain_Humain.IRM
+
+ggarrange(AT_FC$scatter, AT_DT$scatter, AT_DT_LWHR$scatter, AT_HT$scatter,
+         labels=c("All observations", "Day time only", "Low wind and hih solar radiation", "High temperatures"),
+         ncol=1,
+         nrow=4
+        )
+kable(comparisons.l$all_records_comparison_analytics.l$tsa$sensor_scatter.l$Humain_Humain.IRM$cleanSum)
+
+```
+
+
+
+The Rsquare statistic (0.99) indicates that the regression model fits the actual data very well.
+
+The slope of the model (1.01) and its highly significant p-value (<2e-16) indicates that we can reject the null hypothesis and that their is relationship between the actual AT at PNS and RNS that is unlikely due to chance. 
+
+The average amount that the acutal AT at RNS will deviate from the true regression line is indicated by the low Residual Standard Error (0.23).
+
+The slope of the model (1.01) indicates that for each rise of 1 degree Celsius of the AT at PNS, the AT rise at RNS should be higher by a factor of 1.01. In other words, the AT of RNS predicted from the AT of PNS will
+
+
+
+#### 3. Low wind, high irradiance
+
+##### Summary Statistics 
+```{r tsawisum, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+```
+
+##### Time Series 
+```{r tsawits, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+```
+
+##### Box plots 
+```{r tsawibp, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+```
+
+##### Frequencies histograms  
+```{r tsawif, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+```
+
+##### Cumulative frequencies  
+```{r tsawicum, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+```
+
+##### qqplots  
+```{r tsawiqq, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+```
+
+##### Comparison IRM vs. Pameseb  
+```{r tsawiComp, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE, tidy=TRUE}
+```
+
+The intercept of 1.09 is the expected mean value of temperature at IRM 
+when all observed temperature at Pameseb are equal to 0. The slope of 
+the model as a value of 0.98, meaning that for each temperature rise of 
+1degC measured at Pameseb, the expected measured temperature at IRM 
+should be of 0.98 degC at IRM. 
+
+The standard error tells is that the expected measured temperature at 
+IRM can vary by 0.004 degC, which value is significantly below the 
+precision of our thermometers. 
+
+The t-value of 2525.5846, which value is far away from zero. This would 
+indicate we could reject the null hypothesis - that is, we could declare 
+a relationship between the measured temperature at IRM and measured 
+temperature at Pameseb. This is confirmed by the p-values of both slope 
+and intercept which are equal to 0 and are highly significant. It is 
+unlikely that we will observe a relationship between the temperature 
+measured at Pameseb and the  temperature measuredat IRM due to chance. 
+Consequently, a small p-value for the intercept and the slope indicates 
+that we can reject the null hypothesis which allows us to conclude that 
+there is a relationship between the measured temperature at IRM and 
+measured temperature at Pameseb.
+
+The Residual Standard Error is the average amount that effectively 
+measured temperature at IRM will deviate from the true regression line. 
+The actual measured temperature at IRM can deviate from the true 
+regression line by approximately 0.23 degC, on average. 
+
+The R-squared - Rsquare statistic provides a measure of how well the 
+model is fitting the actual data. It takes the form of a proportion of 
+variance. Rsquare is a measure of the linear relationship between the 
+measured temperature at Pameseb and the expected measured temperature at 
+IRM. Its value of 0.99 tells us the model does explain the observed 
+variance in the measured temperature at IRM. 
+
+The F-statistic.is a good indicator of whether there is a relationship 
+between our predictor and the response variables. The further the 
+F-statistic is from 1 the better it is
+
+dual-y-axis were not computed due to their 
+[flaws](https://stackoverflow.com/questions/3099219/plot-with-2-y-axes-one-y-axis-on-the-left-and-another-y-axis-on-the-right/3101876#3101876)
+
+https://stackoverflow.com/questions/23419782/formatting-of-ggplot2-graphic-text-font-sizes-when-using-knitr
+
+## Discussion
+
+### Bland Altman analysis
+
+The mean difference is the estimated bias, and the SD of the differences measures the random fluctuations around this mean. If the mean value of the difference differs significantly from 0 on the basis of a 1-sample t-test, this indicates the presence of fixed bias. If there is a consistent bias, it can be adjusted for by subtracting the mean difference from the new method. It is common to compute 95% limits of agreement for each comparison (average difference ± 1.96 standard deviation of the difference), which tells us how far apart measurements by 2 methods were more likely to be for most individuals. If the differences within mean ± 1.96 SD are not clinically important, the two methods may be used interchangeably. The 95% limits of agreement can be unreliable estimates of the population parameters especially for small sample sizes so, when comparing methods or assessing repeatability, it is important to calculate confidence intervals for 95% limits of agreement. This can be done by Bland and Altman's approximate method [2] or by more precise methods.[5]
+
+Bland and Altman plots were also used to investigate any possible relationship of the discrepancies between the measurements and the true value (i.e., proportional bias). The existence of proportional bias indicates that the methods do not agree equally through the range of measurements (i.e., the limits of agreement will depend on the actual measurement). To evaluate this relationship formally, the difference between the methods should be regressed on the average of the 2 methods. When a relationship between the differences and the true value was identified (i.e., a significant slope of the regression line), regression-based 95% limits of agreement should be provided.
+
+
+
+<script>
+        $(document).ready(function() {
+          $items = $('div#TOC li');
+          $items.each(function(idx) {
+            num_ul = $(this).parentsUntil('#TOC').length;
+            $(this).css({'text-indent': num_ul * 10, 'padding-left': 
+0});
+          });
+        
+        });
+        </script>
+        
+        
+        
+        
+        
+

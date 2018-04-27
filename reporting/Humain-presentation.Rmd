@@ -1,0 +1,245 @@
+---
+author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
+output:
+  revealjs::revealjs_presentation:
+    theme: solarized
+    highlight: pygments
+    center: true
+    incremental: true
+    transition: fade
+    self_contained: true
+    slide_level: 2
+  md_document:
+    variant: markdown_github
+    toc: false
+    toc_depth: 6
+  html_document:
+    theme: default
+    toc: true
+    toc_depth: 6
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+  pdf_document: default
+title: "Comparison of T° measurements @ Humain"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r setup, include=FALSE}
+#+ ---------------------------------
+#' ## Script preparation
+#' 
+#+ preparation, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
+
+# Avoid interference with old variables by cleaning the Global Environment
+rm(list=ls(all=TRUE))
+
+# Automagically set the wd and the root of all projects 
+if (!require("here")) install.packages("here")
+library(here)
+wd.chr <- here::here()
+require(plotly)
+require(knitr)
+require(broom)
+
+# Defining the .Rmd settings - https://github.com/yihui/knitr/issues/277
+knitr::opts_chunk$set(
+echo = FALSE,
+warning= FALSE,
+error= FALSE,
+message= FALSE)
+
+# Loading the .RData generared by the .init file
+load(file= paste0(wd.chr,"/data-output/report_data_various_filters.RData"))
+```
+
+# Context & objectives 
+
+## Integration of the RMI + Pameseb AWS networks
+
+* Agromet : providing hourly gridded (1km²) weather datasets for agricultural decision support system  
+* Possibility of RMI stations integration for better spatialization ==> interoperability ?   
+
+## Assessing the agreement level between the 2 types of AWS
+
+* previous [work](http://onlinelibrary.wiley.com/doi/10.1002/wea.2158/pdf) by Geoff Jenkins described a comparison method based on regression model correlation study.
+* as demonstrated by [Giavarina](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4470095/), correlation studies is not appropriate to study the differences.
+* The alternative [Bland-Altman analysis](https://www-users.york.ac.uk/~mb55/meas/ba.pdf) proposed by the authors is used in this study.
+
+
+# Data presentation
+
+## Statistics : 
+
+```{r}
+kable(no_extra_filter$statistics.l$tsa_stats.df, caption= "tsa summary stats", digits=2)
+```
+
+## Time series
+```{r fig.cap = "Time series"}
+no_extra_filter$plots$timeseries.plot$tsa.time.plot
+```
+
+## Density
+```{r fig.cap = "Density"}
+no_extra_filter$plots$densities.plot$tsa.dens.plot
+```
+
+## Scatter
+```{r fig.cap = "Scatter plot"}
+no_extra_filter$plots$scatters.plot$tsa.scatter.plot
+```
+
+
+# First insights
+
+## Similarity
+
+Datasets seem in accordance ...
+
+* but to which extent ? 
+* How can we quantify this degree of similarity ?  
+* Even if a certain degree of similarity : Pameseb seems warmer
+
+## Temperature difference investigation
+
+What can be infered by studying the temperature differences rather than their correlation ?
+
+# Investigating the temperature difference
+
+## Bland-Altman analysis
+
+We can use a [Bland Altman analysis](https://pokyah.github.io/howto/assessing-the-agreement-between-2-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/) to measure the agreement level between the 2 stations.
+
+It consists to take observations pair by pair, compute their means and difference an plot them.
+
+## Vizualizing Bland-Altman analyis
+
+```{r Plot of mean tsa vs. tsaPameseb - tsaIRM}
+no_extra_filter$blandAltman$bland_altman.plot
+```
+
+## What the Bland-Altman plot tells us ?
+
+* Higher mean temperature shows and higher temperature difference.
+
+* The highest temperature differences are recorded between april and august.
+
+* Temperature differences up to 2.5°C
+
+* ==> CRA-W AWS tends to significantly over-estimate the temperature compared to the RMI station
+
+## A plausible hypothesis to investigate
+
+The 2 stations are actually different in their design :  
+
+  * RMI : Stevenson radiation screeen mechanically ventiled 
+  
+  * Pameseb : custom screen without mechanical ventilation
+  
+  * ==> We can assume that it exists an overheating of the Pameseb shelter compared to IRM, especially during periods of __High irradiance__ and __low wind__ for which the lack of ventilation system at Pameseb may significantly increase the measured temperature.
+  
+## Visualising the 2 designs
+
+![](./assets/shelters.png)  
+
+# Questioning the potential effect of the ventilation
+
+## Strategy
+
+* Do we see the same pattern in temperature differences when considering situations of low irradiance and high-wind situations only ?
+* Filtering the dataset by keeping situations where : `vvt > vvt_mean && ens < 10`
+
+## Low irradiance and high wind BA Plot
+```{r}
+low_rad_high_wind$blandAltman$bland_altman.plot
+```
+
+## What the Low irradiance and high wind BA plot tells us ?
+
+* The differences are still present but are clearly __less important__. Some discrepancies due to outliers
+
+* Even with no irradiance, the rising trend is still present. How can this be ? According to RMI, the ventilation system pumps up air 50 cm below the sensor. While the atmosphere is stratified, the RMI shelter might be ventiled with colder air than the one it is supposed to measure...
+
+* ==> So the rising trend might also be due to an artifical "over-cooling" rather than the combined effect of high irradiance + low wind only
+
+## Statistics of the Low irradiance and high wind
+
+```{r}
+kable(low_rad_high_wind$statistics.l$tsa_stats.df, caption= "low irradiance & high wind tsa summary stats", digits=2)
+```
+
+Strangely, IRM is globally __warmer__ 
+
+* even if the temperature difference for high mean temperature is stil positive (`T°pameseb > T°IRM`) !
+* even it might be subject to artifical over-cooling when the air is stratified
+* ==> Hypothesis : when the shelters stop to receive direct solar radiation, we might expect that the Pameseb one cools quicker due to its less important inertia ?
+
+## Considering the high irradiance and low wind situations  
+
+We can have a quick comparative lookat the __low-wind and high irradiance__ situtions only to better grasp the effect of ventilation 
+
+## High Irradiance & Low wind Balnd-Altman 
+
+```{r}
+high_rad_low_wind$blandAltman$bland_altman.plot
+```
+
+## What the High irradiance and low wind BA plot tells us ?
+
+* The highest temperature discrepencies are 
+* Learn outputs of BA stats
+
+==> __prior to the integration of the 2 networks in the spatialization process, a correction model needs to be applied to the temperature data produced by the CRA-W AWS ne2rk__.
+
+## Summarizing the examination of a ventilation mechanism
+
+* IRM temperature tends to be smaller when low temperature situations (<5°C) whatever the wind and irradiance conditions ("over-cooling" by pumping colder stratified air ?)
+* Pameseb temperature tends to be higher when high temperature situations () only during low wind and high irradiance situations (lack of mechanical ventilation)
+* more more ! Pay attention to axis, etc !!! A lot to say
+
+# Solving the disagreement
+
+## Strategy
+
+We can build a temperature correction model based on irradiance and wind speed conditions
+
+
+# Conclusions, perspectives and colofon
+
+## Conclusions
+
+* prior to spatialization, a correction model needs to be applied before integrating the 2 networks
+
+## Perspectives
+* Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html).
+* title idea : 
+  > Quantitative intercomparison of 2 years hourly records of temperature and relative
+    humidity measured by 2 different types of professional-grade automatic weather stations
+    at Humain, Belgium
+
+## Colofon
+* This report is still in major revision phase. __Consider it as a first draft version__.  
+* This document was generated using R software with the [knitr library](https://deanattali.com/2015/03/24/knitrs-best-hidden-gem-spin/) 
+* The interactive plots are rendered from ggplot by [plotly](https://plot.ly).
+* The source code of the analysis and this presentation is availbale on [github](https://github.com/pokyah/AWS-Humain-comparison)
+
+
+<script>
+  $(document).ready(function() {
+    $items = $('div#TOC li');
+    $items.each(function(idx) {
+      num_ul = $(this).parentsUntil('#TOC').length;
+      $(this).css({'text-indent': num_ul * 10, 'padding-left': 
+          0});
+    });
+    
+  });
+</script>
+  
+  
+  
+  
+  
+  
+  
