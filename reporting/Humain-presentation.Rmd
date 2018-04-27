@@ -20,6 +20,9 @@ output:
     transition: fade
     self_contained: true
     slide_level: 2
+  odt_document:
+    fig_width: 5
+    fig_height: 5
   pdf_document: default
 title: "Comparison of T° measurements @ Humain"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
@@ -141,7 +144,7 @@ The 2 stations are actually different in their design :
   
 ## Visualising the 2 designs
 
-![](./assets/shelters.png)  
+![](./assets/shelters.png){ width=50% }
 
 # Questioning the potential effect of the ventilation
 
