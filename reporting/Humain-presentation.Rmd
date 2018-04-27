@@ -1,31 +1,34 @@
 ---
+title: "Comparison of T° measurements @ Humain"
 author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
+  odt_document:
+    fig_height: 5
+    fig_width: 5
+  md_document:
+    toc: no
+    toc_depth: 6
+    variant: markdown_github
+  word_document:
+    toc: no
+    toc_depth: '6'
+  pdf_document: default
+  revealjs::revealjs_presentation:
+    center: yes
+    highlight: pygments
+    incremental: yes
+    self_contained: yes
+    slide_level: 2
+    theme: solarized
+    transition: fade
   html_document:
     theme: default
-    toc: true
+    toc: yes
     toc_depth: 6
     toc_float:
-      collapsed: true
-      smooth_scroll: true
-  md_document:
-    variant: markdown_github
-    toc: false
-    toc_depth: 6
-  revealjs::revealjs_presentation:
-    theme: solarized
-    highlight: pygments
-    center: true
-    incremental: true
-    transition: fade
-    self_contained: true
-    slide_level: 2
-  odt_document:
-    fig_width: 5
-    fig_height: 5
-  pdf_document: default
-title: "Comparison of T° measurements @ Humain"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+      collapsed: yes
+      smooth_scroll: yes
 ---
 
 ```{r setup, include=FALSE}
