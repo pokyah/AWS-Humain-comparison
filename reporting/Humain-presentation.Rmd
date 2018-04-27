@@ -1,6 +1,17 @@
 ---
 author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
 output:
+  html_document:
+    theme: default
+    toc: true
+    toc_depth: 6
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+  md_document:
+    variant: markdown_github
+    toc: false
+    toc_depth: 6
   revealjs::revealjs_presentation:
     theme: solarized
     highlight: pygments
@@ -9,17 +20,6 @@ output:
     transition: fade
     self_contained: true
     slide_level: 2
-  md_document:
-    variant: markdown_github
-    toc: false
-    toc_depth: 6
-  html_document:
-    theme: default
-    toc: true
-    toc_depth: 6
-    toc_float:
-      collapsed: true
-      smooth_scroll: true
   pdf_document: default
 title: "Comparison of T° measurements @ Humain"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
