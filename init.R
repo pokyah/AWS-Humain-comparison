@@ -11,17 +11,6 @@
 #'title: "R script to build the Humain intercomparison analysis"
 #'date: \ 17-04-2018\
 
-#'---TODO:: normalize
-#' Tester la différence sur les daily max
-#' 
-#' Clearness index ==> filtre dataset original pour les valeurs >0.6 ou seuil au-delà duquel,n 30% d'observations (correspondent à périodes d'effets radiatifs)
-#' apprendre le modèle sur base de cce jue filtré
-#' Valider le modèles sur les daily max
-#' Comparaison daily max corr et originaux
-#' Recréer une série temporelle continue en réintégrant les data nondaily maxima
-#' comparer les paires de stations proches pour l'ensoleillement pour voir si le modèle est transposable
-#' Aussi faire une validation à Humian sur les data nov a avril 2018
-
 
 #+ ---------------------------------
 #' ## Script preparation
@@ -29,24 +18,24 @@
 #+ preparation, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
 
 # Avoid interference with old variables by cleaning the Global Environment
-rm(list=ls(all=TRUE))
+  rm(list=ls(all=TRUE))
 
 # Automagically set the wd and the root of all projects 
-if (!require("here")) install.packages("here")
-library(here)
-wd.chr <- here::here()
+  if (!require("here")) install.packages("here")
+  library(here)
+  wd.chr <- here::here()
 
 # loading the library to manage all the other libraries
-if (!require("pacman")) install.packages("pacman")
-library(pacman)
-requiredPackages <- read.csv("./settings/requiredPackages.csv", quote = "", sep = ",", header=TRUE, stringsAsFactors=FALSE)
-p_load(char=requiredPackages$packageName, character.only=TRUE )
-p_loaded()
+  if (!require("pacman")) install.packages("pacman")
+  library(pacman)
+  requiredPackages <- read.csv("./settings/requiredPackages.csv", quote = "", sep = ",", header=TRUE, stringsAsFactors=FALSE)
+  p_load(char=requiredPackages$packageName, character.only=TRUE )
+  p_loaded()
 
 # Dynamic Sourcing of all the required functions
-source(paste0("../../pokyah/R-utilities/R-utilities.R"))
-source_files_recursively.fun("./R")
-source_files_recursively.fun("../agrometeor-public/R/")
+  source(paste0("../../pokyah/R-utilities/R-utilities.R"))
+  source_files_recursively.fun("./R")
+  source_files_recursively.fun("../agrometeor-public/R/")
 
 #+ ---------------------------------
 #' ## Data Acquisition
@@ -54,49 +43,47 @@ source_files_recursively.fun("../agrometeor-public/R/")
 #+ data-acquisition, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
 
 ## get the list of all Pameseb active stations to populate the 2 stations inputs.
-stations.df <- prepare_agromet_API_data.fun(
-  get_from_agromet_API.fun(
-    user_token.chr= Sys.getenv("AGROMET_API_V1_KEY"),
-    table_name.chr = "station",
-    stations_ids.chr = "all"
+  stations.df <- prepare_agromet_API_data.fun(
+    get_from_agromet_API.fun(
+      user_token.chr= Sys.getenv("AGROMET_API_V1_KEY"),
+      table_name.chr = "station",
+      stations_ids.chr = "all"
+    )
   )
-)
-#------- 
+
 # Get the Humain Pameseb station (sid=61)
-records_pameseb.df <- prepare_agromet_API_data.fun(
-  get_from_agromet_API.fun(
+  records_pameseb.df <- prepare_agromet_API_data.fun(
+    get_from_agromet_API.fun(
+      user_token.chr = Sys.getenv("AGROMET_API_V1_KEY"),
+      table_name.chr = "cleandata",
+      stations_ids.chr = "61",
+      sensors.chr = "tsa, ens, vvt, sunrise, sunset",
+      dfrom.chr = "2015-11-01",
+      dto.chr = "2017-11-01"
+    )
+  )
+
+# Get the Humain IRM station (sid=1000)
+  records_irm_df <- prepare_agromet_API_data.fun(get_from_agromet_API.fun(
     user_token.chr = Sys.getenv("AGROMET_API_V1_KEY"),
-    table_name.chr = "cleandata",
-    stations_ids.chr = "61",
+    table_name.chr = "get_rawdata_irm", 
+    stations_ids.chr = "1000",
     sensors.chr = "tsa, ens, vvt, sunrise, sunset",
     dfrom.chr = "2015-11-01",
     dto.chr = "2017-11-01"
-  )
-)
+  ))
 
-# Get the Humain IRM station (sid=1000)
-records_irm_df <- prepare_agromet_API_data.fun(get_from_agromet_API.fun(
-  user_token.chr = Sys.getenv("AGROMET_API_V1_KEY"),
-  table_name.chr = "get_rawdata_irm", 
-  stations_ids.chr = "1000",
-  sensors.chr = "tsa, ens, vvt, sunrise, sunset",
-  dfrom.chr = "2015-11-01",
-  dto.chr = "2017-11-01"
-))
-
-compare_data <- function(records_irm_df, records_pameseb_df, filter.chr){
-  
-  # Combine the 2 stations datasets in a single dataset for easier data manipulation
+# Combine the 2 stations datasets in a single dataset for easier data manipulation
   records.df <- h.filter_records(
     records.df = bind_rows(records_pameseb.df, records_irm_df),
     sensor.chr = "tsa",
     dateRange.chr = c(as.Date("2015-11-01"),as.Date("2017-11-01")),
-    filter.chr = filter.chr
+    filter.chr = "no_extra_filter"
   )
   cat(paste0("Your dataset contains ", nrow(records.df)/2, " hourly records"))
   number_of_records.num <- nrow(records.df)/2
 
-  #Filter for eventual NA values remaining at ens et vvt
+# Filter for eventual NA values remaining at ens et vvt
   pameseb61.df <- records.df %>% 
     dplyr::filter(sid== unique(records.df$sid)[1]) %>%
     dplyr::filter(!is.na(vvt)) %>%
@@ -113,120 +100,141 @@ compare_data <- function(records_irm_df, records_pameseb_df, filter.chr){
   records.df <- bind_rows(pameseb61.df, irm1000.df)
   h.check_NA(records.df)
 
-  # Add day or not boolean column
+# Add day or not boolean column
   records.df <- h.is_it_day(records.df)
-  
-  # Add rad_top_atmosphere column
+
+# Add rad_top_atmosphere column
   records.df <- h.rad_top_atm(records.df)
 
-  #+ ---------------------------------
-  #' ## localization
-  #+ localization, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
-  responsiveness.chr = "\'<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\'"
-  localization.map <- leaflet() %>% 
-    addProviderTiles(group = "Satellite",
-                     providers$Esri.WorldImagery,
-                     options = providerTileOptions(opacity = 1)
-    ) %>% 
-    addProviderTiles(group = "Stamen",
-                     providers$Stamen.Toner,
-                     options = providerTileOptions(opacity = 0.25)
-    ) %>%
-    addCircles(data = records.df[1,], radius = 100) %>%
-    addLayersControl(baseGroups = c("Stamen", "Satellite"))%>%
-    htmlwidgets::onRender(paste0("
-                                 function(el, x) {
-                                 $('head').append(",responsiveness.chr,");
-                                 }"))
 
-  #+ ---------------------------------
-  #' ## Temperature data comparison
-  #+ temp-data-comparison, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
-  
-  #' ### Descriptive statistics
-  # Compute descriptive statistics for each sensor
-  tsa_stats.df <- h.compute_stats(input_records.df = records.df, sensor_name.chr = "tsa")
-  vvt_stats.df <- h.compute_stats(input_records.df = records.df, sensor_name.chr = "vvt")
-  ens_stats.df <- h.compute_stats(input_records.df = records.df, sensor_name.chr = "ens")
-  
-  #' ### Browsing the data by sensor
-  # Build the scatter plot for each sensors
-  ens.scatter.plot <- h.render_plot(records.df = h.make_wide(records.df, "ens"), sensor_name.chr = "ens", plot.chr = "scatter")
-  vvt.scatter.plot <- h.render_plot(records.df = h.make_wide(records.df, "vvt"), sensor_name.chr = "vvt", plot.chr = "scatter")
-  tsa.scatter.plot <- h.render_plot(records.df = h.make_wide(records.df, "tsa"), sensor_name.chr = "tsa", plot.chr = "scatter")
-  
-  # Build the time serie plot for each sensors
-  ens.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "ens", plot.chr = "timeSerie")
-  vvt.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "vvt", plot.chr = "timeSerie")
-  tsa.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "tsa", plot.chr = "timeSerie")
-  
-  # Build the density plot for each sensors
-  ens.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "ens", plot.chr = "freq")
-  vvt.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "vvt", plot.chr = "freq")
-  tsa.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "tsa", plot.chr = "freq")
-  
-  #' ### Correlation between the 2 stations temperature
-  # Compute a simple linear model to explain how tsa IRM & Pameseb are correlated 
-  regCleanSum.df <- compute_lm(records.wide.df= h.make_wide(records.df, "tsa"), output="regSum")
-  regInfoSm.df <- compute_lm(records.wide.df= h.make_wide(records.df, "tsa"), output="infoSum")
-  
-  #' ### Bland-Altman Analysis ([explanation](https://pokyah.github.io/howto/assessing-the-agreement-between-two-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/))
-  # Compute the Bland Altman plot that express the difference of temperature (Pameseb-IRM) according to mean of temperatures
-  bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="plot")
-  bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="table")
+#+ ---------------------------------
+#' ## Data comparison
+#' 
+#+ data-comparison, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
 
-  
-  #+ ---------------------------------
-  #' ## Returning the outputs
-  #+ ret-outputs, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
-  return(list(
-    dataset.df = records.df,
-    statistics.l = list(
-      tsa_stats.df = tsa_stats.df,
-      vvt_stats.df = vvt_stats.df,
-      ens_stats.df = ens_stats.df
-    ),
-    localization.map = localization.map,
-    plots = list(
-      scatters.plot = list(
-        ens.scatter.plot = ens.scatter.plot,
-        tsa.scatter.plot = tsa.scatter.plot,
-        vvt.scatter.plot = vvt.scatter.plot
-      ),
-      timeseries.plot = list(
-        ens.time.plot = ens.time.plot,
-        tsa.time.plot = tsa.time.plot,
-        vvt.time.plot = vvt.time.plot
-      ),
-      densities.plot = list(
-        ens.dens.plot = ens.dens.plot,
-        tsa.dens.plot = tsa.dens.plot,
-        vvt.dens.plot = vvt.dens.plot
-      ),
-      lm.mod = list(
-        regCleanSum.df = regCleanSum.df,
-        regInfoSm.df = regInfoSm.df
-      )
-    ),
-    blandAltman = list(
-      bland_altman.plot = bland_altman.plot,
-      bland_altman.stats.df = bland_altman.stats.df 
+# compare-data function declaration  
+  compare_data <- function(records.df, filter.chr){
+    
+    #+ ---------------------------------
+    #' ## filetring
+    #+ filtering, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
+    records.df <- h.filter_records(
+      records.df = records.df,
+      sensor.chr = "tsa",
+      dateRange.chr = c(as.Date("2015-11-01"),as.Date("2017-11-01")),
+      filter.chr = filter.chr
     )
-  ))
-}
+  
+    #+ ---------------------------------
+    #' ## localization
+    #+ localization, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
+    responsiveness.chr = "\'<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\'"
+    localization.map <- leaflet() %>% 
+      addProviderTiles(group = "Satellite",
+                       providers$Esri.WorldImagery,
+                       options = providerTileOptions(opacity = 1)
+      ) %>% 
+      addProviderTiles(group = "Stamen",
+                       providers$Stamen.Toner,
+                       options = providerTileOptions(opacity = 0.25)
+      ) %>%
+      addCircles(data = records.df[1,], radius = 100) %>%
+      addLayersControl(baseGroups = c("Stamen", "Satellite"))%>%
+      htmlwidgets::onRender(paste0("
+                                   function(el, x) {
+                                   $('head').append(",responsiveness.chr,");
+                                   }"))
+  
+    #+ ---------------------------------
+    #' ## Temperature data comparison
+    #+ temp-data-comparison, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
+    
+    #' ### Descriptive statistics
+    # Compute descriptive statistics for each sensor
+    tsa_stats.df <- h.compute_stats(input_records.df = records.df, sensor_name.chr = "tsa")
+    vvt_stats.df <- h.compute_stats(input_records.df = records.df, sensor_name.chr = "vvt")
+    ens_stats.df <- h.compute_stats(input_records.df = records.df, sensor_name.chr = "ens")
+    
+    #' ### Browsing the data by sensor
+    # Build the scatter plot for each sensors
+    ens.scatter.plot <- h.render_plot(records.df = h.make_wide(records.df, "ens"), sensor_name.chr = "ens", plot.chr = "scatter")
+    vvt.scatter.plot <- h.render_plot(records.df = h.make_wide(records.df, "vvt"), sensor_name.chr = "vvt", plot.chr = "scatter")
+    tsa.scatter.plot <- h.render_plot(records.df = h.make_wide(records.df, "tsa"), sensor_name.chr = "tsa", plot.chr = "scatter")
+    
+    # Build the time serie plot for each sensors
+    ens.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "ens", plot.chr = "timeSerie")
+    vvt.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "vvt", plot.chr = "timeSerie")
+    tsa.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "tsa", plot.chr = "timeSerie")
+    
+    # Build the density plot for each sensors
+    ens.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "ens", plot.chr = "freq")
+    vvt.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "vvt", plot.chr = "freq")
+    tsa.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "tsa", plot.chr = "freq")
+    
+    #' ### Correlation between the 2 stations temperature
+    # Compute a simple linear model to explain how tsa IRM & Pameseb are correlated 
+    regCleanSum.df <- compute_lm(records.wide.df= h.make_wide(records.df, "tsa"), output="regSum")
+    regInfoSm.df <- compute_lm(records.wide.df= h.make_wide(records.df, "tsa"), output="infoSum")
+    
+    #' ### Bland-Altman Analysis ([explanation](https://pokyah.github.io/howto/assessing-the-agreement-between-two-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/))
+    # Compute the Bland Altman plot that express the difference of temperature (Pameseb-IRM) according to mean of temperatures
+    bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="plot")
+    bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="table")
+  
+    
+    #+ ---------------------------------
+    #' ## Returning the outputs
+    #+ ret-outputs, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
+    return(list(
+      dataset.df = records.df,
+      statistics.l = list(
+        tsa_stats.df = tsa_stats.df,
+        vvt_stats.df = vvt_stats.df,
+        ens_stats.df = ens_stats.df
+      ),
+      localization.map = localization.map,
+      plots = list(
+        scatters.plot = list(
+          ens.scatter.plot = ens.scatter.plot,
+          tsa.scatter.plot = tsa.scatter.plot,
+          vvt.scatter.plot = vvt.scatter.plot
+        ),
+        timeseries.plot = list(
+          ens.time.plot = ens.time.plot,
+          tsa.time.plot = tsa.time.plot,
+          vvt.time.plot = vvt.time.plot
+        ),
+        densities.plot = list(
+          ens.dens.plot = ens.dens.plot,
+          tsa.dens.plot = tsa.dens.plot,
+          vvt.dens.plot = vvt.dens.plot
+        ),
+        lm.mod = list(
+          regCleanSum.df = regCleanSum.df,
+          regInfoSm.df = regInfoSm.df
+        )
+      ),
+      blandAltman = list(
+        bland_altman.plot = bland_altman.plot,
+        bland_altman.stats.df = bland_altman.stats.df 
+      )
+    ))
+  }
 
-low_rad_high_wind_up10 <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="low_rad_high_wind_up10")
+# performing comparison using compare-data
+  no_extra_filter <- compare_data(records.df = records.df, filter.chr="no_extra_filter")
 
-no_extra_filter <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="no_extra_filter")
+  up10deg <- compare_data(records.df = records.df, filter.chr="up10deg")
+  low_rad_high_wind <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind")
+  low_rad_high_wind_up10 <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind_up10")
+  
+  high_rad_high_wind <- compare_data(records.df = records.df, filter.chr="high_rad_high_wind")
+  below10deg <- compare_data(records.df = records.df, filter.chr="below10deg")
+  high_rad_high_wind_below10 <- compare_data(records.df = records.df, filter.chr="high_rad_high_wind_below10")
+  
+  q70_ci <- compare_data(records.df = records.df, filter.chr="q70_ci")
 
-up10deg <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="up10deg")
-low_rad_high_wind <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="low_rad_high_wind")
-
-high_rad_high_wind <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="high_rad_high_wind")
-below10deg <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="below10deg")
-high_rad_high_wind_below10 <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="high_rad_high_wind_below10")
-
-
+  # no_extra_filter <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="no_extra_filter")
 
 
 

@@ -59,12 +59,24 @@ error= FALSE,
 message= FALSE)
 
 # Loading the .RData generared by the .init file
-load(file= paste0(wd.chr,"/data-output/report_data_various_filters.RData"))
+load(file= paste0(wd.chr,"/data-output/report_data_various_filters_ci.RData"))
 #source(paste0(wd.chr,"/init.R"))
 
 #integrate font awesome
 htmltools::tagList(rmarkdown::html_dependency_font_awesome())
 ```
+
+# todolist
+
+* normalize
+* Tester la différence sur les daily max
+* Clearness index ==> filtre dataset original pour les valeurs >0.6 ou seuil au-delà duquel,n 30% d'observations (correspondent à périodes d'effets radiatifs)
+* apprendre le modèle sur base de cce jue filtré
+* Valider le modèles sur les daily max
+* Comparaison daily max corr et originaux
+* Recréer une série temporelle continue en réintégrant les data nondaily maxima
+* comparer les paires de stations proches pour l'ensoleillement pour voir si le modèle est transposable
+* Aussi faire une validation sur les data nov a avril 2018
 
 # Context & objectives <i class="fa fa-file"></i>
 
