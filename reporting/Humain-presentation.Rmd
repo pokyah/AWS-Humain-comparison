@@ -4,13 +4,16 @@ author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 always_allow_html: yes
 output:
-  html_document:
-    theme: default
-    toc: yes
-    toc_depth: 6
-    toc_float:
-      collapsed: yes
-      smooth_scroll: yes
+  revealjs::revealjs_presentation:
+    center: yes
+    highlight: pygments
+    incremental: yes
+    self_contained: true
+    slide_level: 2
+    theme: solarized
+    transition: slide
+    reveal_options:
+      previewLinks: false
   md_document:
     toc: no
     toc_depth: 6
@@ -22,14 +25,13 @@ output:
   odt_document:
     fig_height: 5
     fig_width: 7
-  revealjs::revealjs_presentation:
-    center: yes
-    highlight: pygments
-    incremental: yes
-    self_contained: yes
-    slide_level: 2
-    theme: solarized
-    transition: fade
+  html_document:
+    theme: default
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -79,6 +81,10 @@ htmltools::tagList(rmarkdown::html_dependency_font_awesome())
 
 
 # Data presentation
+
+## Period of interest
+
+2 years of hourly records at Humain from `01-nov-2015` to `01-nov-2017` 
 
 ## Statistics : 
 
@@ -134,81 +140,83 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 ## What the Bland-Altman plot tells us ?
 
-* For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` - `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
+* For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
-* 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` - `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a systematic positif __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)` 
+* 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a systematic positif __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)` (RMI globally warmer !)
 
-* Considering the limits of agreement CI [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,5],2)` and `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[6,5],2)`], we can tell that we are 95 % certain that the methods do not disagree (if maximum allowed difference is 1°C)
+* The scatter presents a trend going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements.
 
-* The scatter presents a trend going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements. 
-
-* The RMI - Pameseb temperature differences are negatively correlated with the temperature means.
+* below 10 °C, IRM tends to be warmer (T°diff fluctuates above 0) and above 10°C, Pameseb tends to be warmer (T°diff flucutuates below0)
 
 
-## Plausible hypothesis to investigate
+## a potential suspect : station design
 
-The 2 stations are actually different in their design. While the __RMI__ is equipped with a __Stevenson radiation screeen mechanically ventiled__, __Pameseb is equipped with a __custom screen without mechanical ventilation__
-
-We can assume that it exists :
-
-1.  an overheating of the Pameseb shelter compared to RMI during periods of __High irradiance and low wind__ due to the lack of ventilation system at Pameseb that may significantly increase the measured temperature.  
-
-2. an overcooling of the RMI shelter compared to Pameseb during periods of __Low irradiance + stratified air__ situation due to the fact that the ventilation pumps air located 50 cm below the temperature sensor.  
-  
-## Visualising the 2 designs
+The 2 stations are actually different in their design. While the __RMI__ is equipped with a Stevenson radiation screeen mechanically ventiled, __Pameseb__ is equipped with a custom screen without mechanical ventilation
 
 ![](./assets/shelters.png){ width=50% }
 
 # Questioning the potential effect of the ventilation
 
-## Strategy
+## Hypothesis 1 
 
-We can filter the dataset to only keep records corresponding to specific situations : 
+> the lack of ventilation system at Pameseb does not allow to sufficiently compensate the effect of direct solar radiation, leading to an overheating of the Pameseb shelter compared to RMI during situations of high irradiance and low wind.
 
-* Do we still see a positif bias What happens when we are in situations of low irradiance ang high wind ? `vvt > vvt_mean && ens < 100`
-* Do we see the same trend in temperature differences when considering situations of __low irradiance and high-wind__ situations only ?
-* Filtering the dataset by keeping situations where : `vvt > vvt_mean && ens < 100`
+If `TRUE`, the negative differences should be less pronounced during periods of __low irradiance (night) and high windspeed__. 
 
-## Low irradiance and high wind BA Plot
+Lets apply the `filter_1` to our dataset : `vvt > q75(vvt) && ens == 0`
+
+## Filter_1 :  BA Plot
 ```{r}
 low_rad_high_wind$blandAltman$bland_altman.plot
 ```
 
-## What the Low irradiance and high wind BA plot tells us ?
+## What the Filter 1 BA plot tells us ?
 
-* It exists a systematic __bias__ of `r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,3]`
+* For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
-* The __limits of agreement__ are `r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,2]` and `r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,4]` °C. *These lines tell us how far apart measurements by 2 methods were more likely to be for most individuals.* 
+* 0 is not in the 95% CI of the mean difference [`r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a systematic positif __bias__ of `r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[1,3],2)` 
 
-* Considering the limits of agreement CI (`r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,5]` and `r low_rad_high_wind$blandAltman$bland_altman.stats.df[6,5]` ), we can tell that we are 95 % certain that the methods do not disagree (if maximum allowed difference is 1°C)
+* The scatter still presents a trend going from positive bias to negative bias.
 
-* The differences are still present but are clearly __less important__. Some discrepancies due to outliers
-
-* Even with no irradiance, the rising trend is still present. How can this be ? According to RMI, the ventilation system pumps up air 50 cm below the sensor. While the atmosphere is stratified, the RMI shelter might be ventiled with colder air than the one it is supposed to measure...
-
-* ==> So the rising trend might also be due to an artifical "over-cooling" rather than the combined effect of high irradiance + low wind only
-
-## Statistics of the Low irradiance and high wind
-
+## Filter_1 & tsa > 10°C : BA Plot
 ```{r}
-kable(low_rad_high_wind$statistics.l$tsa_stats.df, caption= "low irradiance & high wind tsa summary stats", digits=2)
+low_rad_high_wind_up10$blandAltman$bland_altman.plot
 ```
 
-Strangely, IRM is globally __warmer__ 
+## What the Filter_1 & tsa > 10°C BA plot tells us ?
 
-* even if the temperature difference for high mean temperature is stil positive (`T°pameseb > T°IRM`) !
-* even it might be subject to artifical over-cooling when the air is stratified
-* ==> Hypothesis : when the shelters stop to receive direct solar radiation, we might expect that the Pameseb one cools quicker due to its less important inertia ?
+* For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
-## Considering the high irradiance and low wind situations  
+* 0 is not in the 95% CI of the mean difference [`r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a systematic positif __bias__ of `r signif(low_rad_high_wind$blandAltman$bland_altman.stats.df[1,3],2)` 
 
-We can have a quick comparative lookat the __low-wind and high irradiance__ situtions only to better grasp the effect of ventilation 
+* The scatter still presents a trend going from positive bias to negative bias.
 
-## High Irradiance & Low wind Balnd-Altman 
+## Hypothesis 2 
 
+> at night, the ventilation system does not sufficently compensate the much important warming effect of the radiation transfer of the wood shelter towards the sensor (compared to the less important one of the smaller plastic Pameseb shelter), leading to an overheating of the RMI sensor.
+
+If `TRUE`, the positive differences should be less pronounced during periods __of high irradiance and high windspeed__. 
+
+Lets apply the `filter_2` to our dataset : `vvt > q75(vvt) && ens >= mean(ens)`
+
+## Filter_2 :  BA Plot
 ```{r}
-high_rad_low_wind$blandAltman$bland_altman.plot
+high_rad_high_wind$blandAltman$bland_altman.plot
 ```
+
+## What the Filter_2 BA plot tells us ?
+
+* For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(high_rad_high_wind$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(high_rad_high_wind$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
+
+* 0 is not in the 95% CI of the mean difference [`r signif(high_rad_high_wind$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(high_rad_high_wind$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a systematic positif __bias__ of `r signif(high_rad_high_wind$blandAltman$bland_altman.stats.df[1,3],2)` 
+
+* The scatter still presents a trend going from positive bias to negative bias.
+
+## Filter_2 && tsa < 10°C :  BA Plot
+```{r}
+high_rad_high_wind_below10$blandAltman$bland_altman.plot
+```
+
 
 ## What the High irradiance and low wind BA plot tells us ?
 
@@ -217,9 +225,9 @@ high_rad_low_wind$blandAltman$bland_altman.plot
 
 ==> __prior to the integration of the 2 networks in the spatialization process, a correction model needs to be applied to the temperature data produced by the CRA-W AWS ne2rk__.
 
-## Summarizing the examination of a ventilation mechanism
+## Summarizing the examination of the potential effect of ventiliation
 
-* IRM temperature tends to be smaller when low temperature situations (<5°C) whatever the wind and irradiance conditions ("over-cooling" by pumping colder stratified air ?)
+* IRM temperature tends to be higher when low temperature situations (<5°C) whatever the wind and irradiance conditions.
 * Pameseb temperature tends to be higher when high temperature situations () only during low wind and high irradiance situations (lack of mechanical ventilation)
 * more more ! Pay attention to axis, etc !!! A lot to say
 

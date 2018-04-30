@@ -48,7 +48,6 @@ source(paste0("../../pokyah/R-utilities/R-utilities.R"))
 source_files_recursively.fun("./R")
 source_files_recursively.fun("../agrometeor-public/R/")
 
-
 #+ ---------------------------------
 #' ## Data Acquisition
 #' In order to get the Pameseb data from the [API](https://app.pameseb.be/fr/), you need your own token to be stored in you [.Renviron file](https://csgillespie.github.io/efficientR/set-up.html#r-startup).
@@ -116,6 +115,9 @@ compare_data <- function(records_irm_df, records_pameseb_df, filter.chr){
 
   # Add day or not boolean column
   records.df <- h.is_it_day(records.df)
+  
+  # Add rad_top_atmosphere column
+  records.df <- h.rad_top_atm(records.df)
 
   #+ ---------------------------------
   #' ## localization
@@ -172,10 +174,6 @@ compare_data <- function(records_irm_df, records_pameseb_df, filter.chr){
   # Compute the Bland Altman plot that express the difference of temperature (Pameseb-IRM) according to mean of temperatures
   bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="plot")
   bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="table")
-  # bland_altman.stats.df<- bland.altman.stats(
-  #   (h.make_wide(records.df, "tsa"))[3][[1]], # pameseb61
-  #   (h.make_wide(records.df, "tsa"))[2][[1]]  # irm1000
-  # )
 
   
   #+ ---------------------------------
@@ -217,9 +215,21 @@ compare_data <- function(records_irm_df, records_pameseb_df, filter.chr){
   ))
 }
 
+low_rad_high_wind_up10 <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="low_rad_high_wind_up10")
+
 no_extra_filter <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="no_extra_filter")
+
+up10deg <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="up10deg")
 low_rad_high_wind <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="low_rad_high_wind")
-high_rad_low_wind <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="high_rad_low_wind")
+
+high_rad_high_wind <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="high_rad_high_wind")
+below10deg <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="below10deg")
+high_rad_high_wind_below10 <- compare_data(records_irm_df=records_irm_df, records_pameseb_df=records_pameseb_df, filter.chr="high_rad_high_wind_below10")
+
+
+
+
+
 
 #+ ---------------------------------
 #' ## Temperature data interpretation
