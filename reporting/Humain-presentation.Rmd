@@ -2,10 +2,15 @@
 title: "Comparison of T° measurements @ Humain"
 author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+always_allow_html: yes
 output:
-  odt_document:
-    fig_height: 5
-    fig_width: 5
+  html_document:
+    theme: default
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
   md_document:
     toc: no
     toc_depth: 6
@@ -14,6 +19,9 @@ output:
     toc: no
     toc_depth: '6'
   pdf_document: default
+  odt_document:
+    fig_height: 5
+    fig_width: 7
   revealjs::revealjs_presentation:
     center: yes
     highlight: pygments
@@ -22,13 +30,6 @@ output:
     slide_level: 2
     theme: solarized
     transition: fade
-  html_document:
-    theme: default
-    toc: yes
-    toc_depth: 6
-    toc_float:
-      collapsed: yes
-      smooth_scroll: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -57,9 +58,13 @@ message= FALSE)
 
 # Loading the .RData generared by the .init file
 load(file= paste0(wd.chr,"/data-output/report_data_various_filters.RData"))
+#source(paste0(wd.chr,"/init.R"))
+
+#integrate font awesome
+htmltools::tagList(rmarkdown::html_dependency_font_awesome())
 ```
 
-# Context & objectives 
+# Context & objectives <i class="fa fa-file"></i>
 
 ## Integration of the RMI + Pameseb AWS networks
 
@@ -117,7 +122,9 @@ What can be infered by studying the temperature differences rather than their co
 
 We can use a [Bland Altman analysis](https://pokyah.github.io/howto/assessing-the-agreement-between-2-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/) to measure the agreement level between the 2 stations.
 
-It consists to take observations pair by pair, compute their means and difference an plot them.
+It consists to take observations pair by pair, and plot their means vs. their differences.
+
+In our case we choose to plot `IRM - Pameseb`.
 
 ## Vizualizing Bland-Altman analyis
 
@@ -127,23 +134,26 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 ## What the Bland-Altman plot tells us ?
 
-* Higher mean temperature shows and higher temperature difference.
+* For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` - `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
-* The highest temperature differences are recorded between april and august.
+* 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` - `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a systematic positif __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)` 
 
-* Temperature differences up to 2.5°C
+* Considering the limits of agreement CI [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,5],2)` and `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[6,5],2)`], we can tell that we are 95 % certain that the methods do not disagree (if maximum allowed difference is 1°C)
 
-* ==> CRA-W AWS tends to significantly over-estimate the temperature compared to the RMI station
+* The scatter presents a trend going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements. 
 
-## A plausible hypothesis to investigate
+* The RMI - Pameseb temperature differences are negatively correlated with the temperature means.
 
-The 2 stations are actually different in their design :  
 
-  * RMI : Stevenson radiation screeen mechanically ventiled 
-  
-  * Pameseb : custom screen without mechanical ventilation
-  
-  * ==> We can assume that it exists an overheating of the Pameseb shelter compared to IRM, especially during periods of __High irradiance__ and __low wind__ for which the lack of ventilation system at Pameseb may significantly increase the measured temperature.
+## Plausible hypothesis to investigate
+
+The 2 stations are actually different in their design. While the __RMI__ is equipped with a __Stevenson radiation screeen mechanically ventiled__, __Pameseb is equipped with a __custom screen without mechanical ventilation__
+
+We can assume that it exists :
+
+1.  an overheating of the Pameseb shelter compared to RMI during periods of __High irradiance and low wind__ due to the lack of ventilation system at Pameseb that may significantly increase the measured temperature.  
+
+2. an overcooling of the RMI shelter compared to Pameseb during periods of __Low irradiance + stratified air__ situation due to the fact that the ventilation pumps air located 50 cm below the temperature sensor.  
   
 ## Visualising the 2 designs
 
@@ -153,8 +163,11 @@ The 2 stations are actually different in their design :
 
 ## Strategy
 
-* Do we see the same pattern in temperature differences when considering situations of low irradiance and high-wind situations only ?
-* Filtering the dataset by keeping situations where : `vvt > vvt_mean && ens < 10`
+We can filter the dataset to only keep records corresponding to specific situations : 
+
+* Do we still see a positif bias What happens when we are in situations of low irradiance ang high wind ? `vvt > vvt_mean && ens < 100`
+* Do we see the same trend in temperature differences when considering situations of __low irradiance and high-wind__ situations only ?
+* Filtering the dataset by keeping situations where : `vvt > vvt_mean && ens < 100`
 
 ## Low irradiance and high wind BA Plot
 ```{r}
@@ -162,6 +175,12 @@ low_rad_high_wind$blandAltman$bland_altman.plot
 ```
 
 ## What the Low irradiance and high wind BA plot tells us ?
+
+* It exists a systematic __bias__ of `r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,3]`
+
+* The __limits of agreement__ are `r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,2]` and `r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,4]` °C. *These lines tell us how far apart measurements by 2 methods were more likely to be for most individuals.* 
+
+* Considering the limits of agreement CI (`r low_rad_high_wind$blandAltman$bland_altman.stats.df[1,5]` and `r low_rad_high_wind$blandAltman$bland_altman.stats.df[6,5]` ), we can tell that we are 95 % certain that the methods do not disagree (if maximum allowed difference is 1°C)
 
 * The differences are still present but are clearly __less important__. Some discrepancies due to outliers
 

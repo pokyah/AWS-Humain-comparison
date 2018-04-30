@@ -171,10 +171,12 @@ compare_data <- function(records_irm_df, records_pameseb_df, filter.chr){
   #' ### Bland-Altman Analysis ([explanation](https://pokyah.github.io/howto/assessing-the-agreement-between-two-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/))
   # Compute the Bland Altman plot that express the difference of temperature (Pameseb-IRM) according to mean of temperatures
   bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="plot")
-  bland_altman.stats.df<- bland.altman.stats(
-    (h.make_wide(records.df, "tsa"))[3][[1]], # pameseb61
-    (h.make_wide(records.df, "tsa"))[2][[1]]  # irm1000
-  )
+  bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="table")
+  # bland_altman.stats.df<- bland.altman.stats(
+  #   (h.make_wide(records.df, "tsa"))[3][[1]], # pameseb61
+  #   (h.make_wide(records.df, "tsa"))[2][[1]]  # irm1000
+  # )
+
   
   #+ ---------------------------------
   #' ## Returning the outputs
