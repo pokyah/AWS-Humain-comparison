@@ -247,7 +247,22 @@ high_rad_high_wind_below10$blandAltman$bland_altman.plot
 
 ## Strategy
 
+We can build a correction model to solve the problem of the verified hypothesis 1 (negative T°RMi - T°Pameseb differences for high temperatures).
+We consider the RMI station as the golden standard in AWS design so the purpose is to correct the Pameseb measurement.
+* The correction model will use irradiance and wind speed to explain the T° difference. 
+We can assume that wind speed and irradiance ar
+IRM uses a mechanically ventilated [Stevenson screen](https://www.weathershop.co.uk/shop/media/catalog/product/cache/6/image/800x/b216e8ab95b1018bca410e090021ba3f/m/s/ms_met01_1.jpg) while Pameseb uses a more simple [custom setup](https://www.pameseb.be/meteo_intro/infos_techniques/temperature.html)
+* It is expected that Pameseb shows warmer temperatures while windspeed is low and irradiance is high.
+#' To do so, we will use IRM as a reference golden standard for temperature and use a correction model for Pameseb.
+#' The model will use ens and vvt measured by Pameseb to explain the temperature difference between IRM and Pameseb
 We can build a temperature correction model based on irradiance and wind speed conditions
+
+## Model results
+
+
+## Correction results
+It seems that the model cannot efficiently make the correction for the high temperature.
+Maybe should we only compute a model on a subset of the whole dataframe and apply it only on these cases
 
 
 # Conclusions, perspectives and colofon
