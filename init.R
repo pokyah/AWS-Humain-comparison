@@ -223,43 +223,6 @@
       # 
       # q70_ci <- compare_data(records.df = records.df, filter.chr="q70_ci")
 #+ ---------------------------------
-#' ## 3D plot tsa-ens-vvt
-#+ tsa-ens-vvt-3d, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
-    #' ### How is temperature correlated to irradiance and windspeed ?
-    # Build a 3D Scatter plot to show how temperature (tsa) is linked to irradiance (ens) and windspeed (vvt). The colors express the months of the year
-    # records.df <- records.df %>% mutate(month = as.factor(month(mtime)))
-    # tsa_vvt_ens.scatter.plot <- plotly::plot_ly(
-    #   data = records.df,
-    #   x = ~tsa,
-    #   y = ~ens,
-    #   z = ~vvt,
-    #   color = ~month,
-    #   colors = h.ggplot_colours(n=12),
-    #   marker = list(
-    #     size = 3
-    #   )
-    # )%>%
-    #   layout(scene = list(xaxis = list(title = 'tsa'),
-    #                       yaxis = list(title = 'ens'),
-    #                       zaxis = list(title = 'vvt')))
-    # 
-    # records.df <- low_rad_high_wind.records.df %>% mutate(month = as.factor(month(mtime)))
-    # tsa_vvt_ens.scatter.plot <- plotly::plot_ly(
-    #   data = records.df,
-    #   x = ~tsa,
-    #   y = ~ens,
-    #   z = ~vvt,
-    #   color = ~month,
-    #   colors = h.ggplot_colours(n=12),
-    #   marker = list(
-    #     size = 3
-    #   )
-    # )%>%
-    #   layout(scene = list(xaxis = list(title = 'tsa'),
-    #                       yaxis = list(title = 'ens'),
-    #                       zaxis = list(title = 'vvt')))
-
-#+ ---------------------------------
 #' ## Correcting the tsa-diff
   #+ ---------------------------------
   #' ### Declaration of the Function to build tsa-diff Correction models
@@ -340,39 +303,39 @@
       #' #### Model validation using a custom Holdout strategy - training = ens > q70(ens) & val = daily_max
         # Validating the model with a custom Holdout strategy
           fho.rspl.desc = makeFixedHoldoutInstance(train.inds = high_rad_inds.df , test.inds = daily_max_inds.df, size=nrow(inds.pameseb61.df))
-          fho.rspl = resample(resp.regr.lrn, regr.task, fho.rspl.desc)
+          fho.rspl = resample(resp.regr.lrn, regr.task, fho.rspl.desc, models=TRUE)
       #+ ---------------------------------  
       #' #### Model validation using a 200 folds Cross Validation on the whole dataset
         # Validating the model with a resampling strategy CV 200
-          cv200.rspl.desc = makeResampleDesc("CV", iters = 200)
-          cv200.rspl = resample(resp.regr.lrn, regr.task, cv200.rspl.desc)
+          #cv200.rspl.desc = makeResampleDesc("CV", iters = 200)
+          #cv200.rspl = resample(resp.regr.lrn, regr.task, cv200.rspl.desc)
       #+ ---------------------------------
       #' #### Vizualizing model predictions   
       #+ --------------------------------- 
       #' ##### 2D Visualisation of the prediction of tsa_diff according to ens and vvt
-        resp.pred.plot <- plotLearnerPrediction(resp.regr.lrn, task = regr.task)
+        # resp.pred.plot <- plotLearnerPrediction(resp.regr.lrn, task = regr.task)
       #+ --------------------------------- 
       #' ##### 3D Visualisation of the prediction of tsa_diff according to ens and vvt using plotly - [1](https://community.plot.ly/t/3d-scatter-3d-regression-line/4149/6) & [2](https://plot.ly/r/line-and-scatter/)
         # Create the prediction grid to plot on a 3D scatter
           graph_reso <- 0.5
-          axis_x <- seq(min(records.reshaped.df$ens_61), max(records.reshaped.df$ens_61), by = graph_reso)
-          axis_y <- seq(min(records.reshaped.df$vvt_61), max(records.reshaped.df$vvt_61), by = graph_reso)
-          tsadiff_lm_surface <- expand.grid(ens_61 = axis_x, vvt_61 = axis_y,KEEP.OUT.ATTRS = F)
+          axis_x <- seq(min(mod.pameseb61.df$ens), max(mod.pameseb61.df$ens), by = graph_reso)
+          axis_y <- seq(min(mod.pameseb61.df$vvt), max(mod.pameseb61.df$vvt), by = graph_reso)
+          tsadiff_lm_surface <- expand.grid(ens = axis_x, vvt = axis_y,KEEP.OUT.ATTRS = F)
         # predict the values on the prediction grid locations using the model to create the prediction surface
-        grid.pred <- predict(
-          object = resp.regr.mod,
-          newdata = tsadiff_lm_surface
-        )
-      # prediction_data <- as.vector(prediction$data[[1]])
-        # names(prediction_data) <- seq(1, length(prediction_data), by=1)
+          grid.pred <- predict(
+            object = fho.rspl$models[[1]], #resp.regr.mod
+            newdata = tsadiff_lm_surface
+          )
+          # prediction_data <- as.vector(prediction$data[[1]])
+          # names(prediction_data) <- seq(1, length(prediction_data), by=1)
           tsadiff_lm_surface$tsa_diff <- as.vector(grid.pred$data[[1]])
-          tsadiff_lm_surface <- acast(tsadiff_lm_surface, vvt_61 ~ ens_61, value.var = "tsa_diff") #y ~ x
+          tsadiff_lm_surface <- acast(tsadiff_lm_surface, vvt ~ ens, value.var = "tsa_diff") #y ~ x
         # Building the 3D plot
           resp.pred.plot.3d <- plot_ly(
-            data = records.reshaped.df,
-            x = ~ens_61,
-            y = ~vvt_61,
-            z = ~tsa_diff,
+            data = mod.pameseb61.df,
+            x = ~ens,
+            y = ~vvt,
+            z = ~diffs,
             marker = list(
               size = 3,
               color = ~month,
@@ -396,7 +359,7 @@
   #+ ---------------------------------
   #' ### Getting the output of the prediction model (pred_tsa_diff) for each hourly observation and binding together with observed tsa_diff and the tsa measured at Pameseb)
     # Building the binding dataframe using multiple regressions outputs...
-      pred_tsa_diff.df <- data.frame(resp.task.pred$data$response)
+      pred_tsa_diff.df <- fho.rspl$pred$data$response
       colnames(pred_tsa_diff.df) <- "pred_tsa_diff"
       tsa_diff.df <- (records.reshaped.df["tsa_diff"])
       tsa_corr.df <- bind_cols(tsa_wide.df, tsa_diff.df, pred_tsa_diff.df)
