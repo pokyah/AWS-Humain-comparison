@@ -234,171 +234,171 @@
   #+ correction-model, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
     #::todo::build_corr_model <- function(records.df, resampling.chr, subset){
       #+ ---------------------------------
-      #' ### Tidying data to only keep what we need for modelling purpose : tsa_diff + ens + vvt 
+      #' ### Tidying data to only keep what we need for modelling purposes
         # Filtering the dataset.
           mod.pameseb61.df <- no_extra_filter$records.df %>%
             dplyr::filter(sid=="61") %>%
-            dplyr::select(one_of("ens","vvt","diffs","key"))
+            dplyr::filter(day==TRUE) %>%  
+            dplyr::select(one_of("tsa", "daily_max", "ens", "ci", "vvt", "diffs","key"))
           mod.pameseb61.df <- data.frame(mod.pameseb61.df)
           h.check_NA(mod.pameseb61.df)
-        # # mlr package does not accept posixct ==> converting mtime to timestamps
-        #   mod.pameseb61.df <- mod.pameseb61.df %>%
-        #     mutate_at(.vars="mtime", function(x){as.numeric(x)})
-      #+ ---------------------------------
-      #' ### Tidying data to keep what we need for resampling strategy elaboration 
-        inds.pameseb61.df <- no_extra_filter$records.df %>%
-          dplyr::filter(sid=="61") %>%
-          dplyr::select(one_of("ci","tsa", "daily_max", "ens", "key"))
-        inds.pameseb61.df <- data.frame(inds.pameseb61.df)
-        h.check_NA(inds.pameseb61.df)    
-      #+ ---------------------------------
-      #' #### extracting the indices of mtime where tsa = daily_max : validation set for future holdout resampling method
-        daily_max_inds.df <- which(inds.pameseb61.df$tsa==inds.pameseb61.df$daily_max)
-      #+ ---------------------------------  
-      #' #### extracting the indices of mtime where ens > q70(ens) : training set for future holdout resampling method
-        high_rad_inds.df <- which(inds.pameseb61.df$ens>=quantile(x = inds.pameseb61.df$ens, probs=0.7 ))
-      #+ ---------------------------------  
-      #' #### Defining the modelization task using [mlr package](https://mlr-org.github.io/mlr-tutorial)
-        # loading the mlr library
+        #+ ---------------------------------
+        #' #### extracting the indices of mtime where tsa = daily_max : validation set for future holdout resampling method
+          daily_max_inds.df <- which(mod.pameseb61.df$tsa == mod.pameseb61.df$daily_max)
+        #+ ---------------------------------  
+        #' #### extracting the indices of mtime where ens > q70(ens) : training set for future holdout resampling method
+          high_rad_inds.df <- which(mod.pameseb61.df$ens>=quantile(x = mod.pameseb61.df$ens, probs=0.70 ))
+        #+ ---------------------------------  
+        #' #### extracting the indices of mtime where ci > q70(ci) : training set for future holdout resampling method
+          high_ci_inds.df <- which(mod.pameseb61.df$ci>=quantile(x = mod.pameseb61.df$ci, probs=0.70 ))
+        #' ### REmove the useless features
+        # Filtering the dataset.
+        mod.features.pameseb61.df <- no_extra_filter$records.df %>%
+          dplyr::select(one_of("ens", "vvt", "diffs"))
+        mod.pameseb61.df <- data.frame(mod.pameseb61.df)
+        h.check_NA(mod.pameseb61.df)  
+        #+ ---------------------------------
+        #' #### Defining the modelization task using [mlr package](https://mlr-org.github.io/mlr-tutorial)
+          # loading the mlr library
           library(mlr)
-        # creating the regression task
-          regr.task = mlr::makeRegrTask(
-            id = "regr",
-            data = mod.pameseb61.df,
-            target = "diffs"
-          )
-        # remove key from the task as we don't want it as explanatory variable
-          regr.task <- dropFeatures(task = regr.task, features = "key")
-      #' #+ ---------------------------------    
-      #' #' #### Defining the learners
-      #' #+ --------------------------------- 
-      #' #' ##### create the response learner
-      #'   resp.regr.lrn = mlr::makeLearner(
-      #'     cl = "regr.lm",
-      #'     id = "re.regr.lm",
-      #'     predict.type = "response"
-      #'   )
-      #' #+ --------------------------------- 
-      #' #' ##### Create the standard error learner
-      #'   se.regr.lrn = mlr::makeLearner(
-      #'     cl = "regr.lm",
-      #'     id = "re.regr.lm",
-      #'     predict.type = "se"
-      #'   )
-      #' #+ ---------------------------------    
-      #' #' #### Training the learners
-      #'   # train the resp learner to create the regr model on our dataset
-      #'     resp.regr.mod = train(resp.regr.lrn, regr.task)
-      #'   # train the se learner to create the model on our dataset
-      #'     se.regr.mod = train(se.regr.lrn, regr.task)
-      #' #+ ---------------------------------  
-      #' #' #### Computing & visualizing the predictions using the model
-      #' #+ ---------------------------------      
-      #' #' ##### Compute the model prediction for tsa_diff using ensPameseb and vvtPameseb for each hourly records
-      #'   resp.task.pred = predict(
-      #'     object = resp.regr.mod,
-      #'     task = regr.task
-      #'   )
-      #' #+ ---------------------------------      
-      #' #' ##### Compute the model SE for tsa_diff using ensPameseb and vvtPameseb for each hourly records
-      #'   se.task.pred = predict(
-      #'     object = se.regr.mod,
-      #'     task = regr.task
-      #'   )
-      #' #+ ---------------------------------  
-      #' #' #### Measuring the performance of the model
-      #'   # performance indicators
-      #'     resp.regr.perf <- performance(resp.task.pred, measures = list(mse, medse, mae))
-      #+ ---------------------------------  
-      #' #### Model validation using a custom Holdout strategy - training = ens > q70(ens) & val = daily_max
-        # Validating the model with a custom Holdout strategy
-          fho.rspl.desc = makeFixedHoldoutInstance(train.inds = high_rad_inds.df , test.inds = daily_max_inds.df, size=nrow(inds.pameseb61.df))
-          fho.rspl = resample(resp.regr.lrn, regr.task, fho.rspl.desc, models=TRUE)
-      #+ ---------------------------------  
-      #' #### Model validation using a 200 folds Cross Validation on the whole dataset
-        # Validating the model with a resampling strategy CV 200
-          #cv200.rspl.desc = makeResampleDesc("CV", iters = 200)
-          #cv200.rspl = resample(resp.regr.lrn, regr.task, cv200.rspl.desc)
-      #+ ---------------------------------
-      #' #### Vizualizing model predictions   
-      #+ --------------------------------- 
-      #' ##### 2D Visualisation of the prediction of tsa_diff according to ens and vvt
-        # resp.pred.plot <- plotLearnerPrediction(resp.regr.lrn, task = regr.task)
-      #+ --------------------------------- 
-      #' ##### 3D Visualisation of the prediction of tsa_diff according to ens and vvt using plotly - [1](https://community.plot.ly/t/3d-scatter-3d-regression-line/4149/6) & [2](https://plot.ly/r/line-and-scatter/)
-        # Create the prediction grid to plot on a 3D scatter
-          graph_reso <- 0.5
-          axis_x <- seq(min(mod.pameseb61.df$ens), max(mod.pameseb61.df$ens), by = graph_reso)
-          axis_y <- seq(min(mod.pameseb61.df$vvt), max(mod.pameseb61.df$vvt), by = graph_reso)
-          tsadiff_lm_surface <- expand.grid(ens = axis_x, vvt = axis_y,KEEP.OUT.ATTRS = F)
-        # predict the values on the prediction grid locations using the model to create the prediction surface
-          grid.pred <- predict(
-            object = fho.rspl$models[[1]], #resp.regr.mod
-            newdata = tsadiff_lm_surface
-          )
-          # prediction_data <- as.vector(prediction$data[[1]])
-          # names(prediction_data) <- seq(1, length(prediction_data), by=1)
-          tsadiff_lm_surface$tsa_diff <- as.vector(grid.pred$data[[1]])
-          tsadiff_lm_surface <- acast(tsadiff_lm_surface, vvt ~ ens, value.var = "tsa_diff") #y ~ x
-        # Building the 3D plot
-          resp.pred.plot.3d <- plot_ly(
-            data = mod.pameseb61.df,
-            x = ~ens,
-            y = ~vvt,
-            z = ~diffs,
-            marker = list(
-              size = 3,
-              color = ~month,
-              colors = h.ggplot_colours(n=12)
+          #+ ---------------------------------
+          #' ##### defining a benchmark experiment to compare various methods
+          # Define the learners to be compared
+          lrns.l = list(makeLearner("regr.lm"),
+                      makeLearner("regr.elmNN")
+                      )
+          # Define the validation strategies that we want to use
+          rsmpls.l = list(
+            holdout.rdesc = makeResampleDesc("Holdout"),
+            cv200.rdesc = makeResampleDesc("CV", iters = 200),
+            high_rad.holdout.rdesc = makeFixedHoldoutInstance(
+             train.inds = high_rad_inds.df,
+             test.inds = daily_max_inds.df,
+             size=nrow(mod.features.pameseb61.df)
+            ),
+            high_ci.holdout.rdesc = makeFixedHoldoutInstance(
+             train.inds = high_ci_inds.df,
+             test.inds = daily_max_inds.df,
+             size=nrow(mod.features.pameseb61.df)
             )
-          ) %>%
-            add_markers() %>%
-            add_surface(
-              z = tsadiff_lm_surface,
-              x = axis_x,
-              y = axis_y,
-              type = "surface"
-            )
-      #+ --------------------------------- 
-      #' #### Returning the outputs
-      # Create the list containing all the outputs
-    #::todo::}
-#+ ---------------------------------
-#' ## Pameseb61 observed temperature correction using the tsa_diff prediction model.
-#' #+ tsa_diff_correction, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
+          )
+          # defines the tasks (all the same but mlr needs a task by resampling strategy)
+          regr.tasks.l = list(
+            regr.task1 = mlr::makeRegrTask(
+              id = "regr1",
+              data = mod.features.pameseb61.df,
+              target = "diffs"
+            ),
+            regr.task2 = mlr::makeRegrTask(
+              id = "regr2",
+              data = mod.features.pameseb61.df,
+              target = "diffs"
+            ),
+            regr.task3 = mlr::makeRegrTask(
+              id = "regr3",
+              target = "diffs"
+            ),
+            regr.task4 = mlr::makeRegrTask(
+              id = "regr4",
+              data = mod.features.pameseb61.df,
+              target = "diffs"
+            ))
+          # Conduct a benchmark experiment
+          set.seed(1985)
+          bmr.l <- benchmark(learners = lrns.l, tasks = regr.tasks.l, resamplings = rsmpls.l)
+
+          
+
+        #' #+ ---------------------------------    
+        #' #' #### Defining the learners
+        #' #+ --------------------------------- 
+        #' #' ##### create the response learner
+        #'   resp.regr.lrn = mlr::makeLearner(
+        #'     cl = "regr.lm",
+        #'     id = "re.regr.lm",
+        #'     predict.type = "response"
+        #'   )
+        #' #+ --------------------------------- 
+        #' #' ##### Create the standard error learner
+        #'   se.regr.lrn = mlr::makeLearner(
+        #'     cl = "regr.lm",
+        #'     id = "re.regr.lm",
+        #'     predict.type = "se"
+        #'   )
+        #' #+ ---------------------------------    
+        #' #' #### Training the learners
+        #'   # train the resp learner to create the regr model on our dataset
+        #'     resp.regr.mod = train(resp.regr.lrn, regr.task)
+        #'   # train the se learner to create the model on our dataset
+        #'     se.regr.mod = train(se.regr.lrn, regr.task)
+        #' #+ ---------------------------------  
+        #' #' #### Computing & visualizing the predictions using the model
+        #' #+ ---------------------------------      
+        #' #' ##### Compute the model prediction for tsa_diff using ensPameseb and vvtPameseb for each hourly records
+        #'   resp.task.pred = predict(
+        #'     object = resp.regr.mod,
+        #'     task = regr.task
+        #'   )
+        #' #+ ---------------------------------      
+        #' #' ##### Compute the model SE for tsa_diff using ensPameseb and vvtPameseb for each hourly records
+        #'   se.task.pred = predict(
+        #'     object = se.regr.mod,
+        #'     task = regr.task
+        #'   )
+        #' #+ ---------------------------------  
+        #' #' #### Measuring the performance of the model
+        #'   # performance indicators
+        #'     resp.regr.perf <- performance(resp.task.pred, measures = list(mse, medse, mae))
+        #+ ---------------------------------  
+        #' #### Model validation using a custom Holdout strategy - training = ens > q60(ens) & val = daily_max
+          # Validating the model with a custom Holdout strategy
+            q70.fho.rspl.desc = makeFixedHoldoutInstance(train.inds = high_rad_inds.df, test.inds = daily_max_inds.df, size=nrow(inds.pameseb61.df))
+            q70.fho.rspl = resample(resp.regr.lrn, regr.task, fho.rspl.desc, models=TRUE)
+        #+ ---------------------------------  
+        #' #### Model validation using a 200 folds Cross Validation on the whole dataset
+          # Validating the model with a resampling strategy CV 200
+            #cv200.rspl.desc = makeResampleDesc("CV", iters = 200)
+            #cv200.rspl = resample(resp.regr.lrn, regr.task, cv200.rspl.desc)
+        #+ --------------------------------- 
+        #' #### Returning the outputs
+        # Create the list containing all the outputs
+      #::todo::}
   #+ ---------------------------------
-  #' ### Getting the output of the prediction model (pred_tsa_diff) for each hourly observation and binding together with observed tsa_diff and the tsa measured at Pameseb)
-    # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
-      pred_diffs.df <- data.frame(pred_fiffs = fho.rspl$pred$data$response)
-    # Filtering the mtime original dataset to only keep the keys of observations that were used as validation set
-      sub.val.mod.pameseb61.df <- select(subset(mod.pameseb61.df, row.names(mod.pameseb61.df) %in% daily_max_inds.df), "key")    
-    # binding cols of the corrected data with the keys of validation set of the original dataframe use for modelling
-      pred_diffs.df <- pred_diffs.df %>%
-        bind_cols(sub.val.mod.pameseb61.df)
-    # joining the validation set containing the corrected data to the original dataframe
-      test.key.df <- no_extra_filter$records.df %>%
-        #dplyr::filter(sid=="61") %>%
-        left_join(pred_diffs.df, by="key")
-  #+ ---------------------------------
-  #' ### Merging corrected data observations with non-corrected data (i.e. only at observations corresponding to daily_max - which are our validation set) 
-    # for BA but is quite useless because ba will compute these
-      # test.key.df <- test.key.df %>%
-      # mutate(corr_diffs = coalesce(pred_fiffs, diffs))
-  #+ ---------------------------------
-  #' ### Calculating the corrected temperature using the corr_diffs (i.e. only at observations corresponding to daily_max)
-    test.key.df <- test.key.df %>%
-      #dplyr::filter(sid=="61") %>%
-        mutate_at(.vars="pred_fiffs", funs(replace(.,is.na(.), 0))) %>%
-        mutate(corr_tsa = tsa - pred_fiffs)
-  #+ ---------------------------------
-  #' ### Vizualizing the corrected Pameseb61 tsa
-    #+ ---------------------------------  
-    #' #### Timeseries
-      corr_tsa.time.plot <- h.render_plot(records.df = test.key.df, sensor_name.chr = "corr_tsa", plot.chr = "timeSerie")
+  #' ## Pameseb61 observed temperature correction using the tsa_diff prediction model.
+  #' #+ tsa_diff_correction, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
     #+ ---------------------------------
-    #' #### Bland-Altman
-      colnames(tsa_corr_long.df) <- c("mtime", "sid", "tsa")
-      bland_altman.corr.plot <- h.compute_ba(records.wide.df= h.make_wide(tsa_corr_long.df, "tsa"), output="plot")
+    #' ### Getting the output of the prediction model (pred_tsa_diff) for each hourly observation and binding together with observed tsa_diff and the tsa measured at Pameseb)
+      # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
+        pred_diffs.df <- data.frame(pred_fiffs = q70.fho.rspl$pred$data$response)
+      # Filtering the mtime original dataset to only keep the keys of observations that were used as validation set
+        sub.val.mod.pameseb61.df <- select(subset(mod.pameseb61.df, row.names(mod.pameseb61.df) %in% daily_max_inds.df), "key")    
+      # binding cols of the corrected data with the keys of validation set of the original dataframe use for modelling
+        pred_diffs.df <- pred_diffs.df %>%
+          bind_cols(sub.val.mod.pameseb61.df)
+      # joining the validation set containing the corrected data to the original dataframe
+        test.key.df <- no_extra_filter$records.df %>%
+          #dplyr::filter(sid=="61") %>%
+          left_join(pred_diffs.df, by="key")
+    #+ ---------------------------------
+    #' ### Merging corrected data observations with non-corrected data (i.e. only at observations corresponding to daily_max - which are our validation set) 
+      # for BA but is quite useless because ba will compute these
+        # test.key.df <- test.key.df %>%
+        # mutate(corr_diffs = coalesce(pred_fiffs, diffs))
+    #+ ---------------------------------
+    #' ### Calculating the corrected temperature using the corr_diffs (i.e. only at observations corresponding to daily_max)
+      test.key.df <- test.key.df %>%
+        #dplyr::filter(sid=="61") %>%
+          mutate_at(.vars="pred_fiffs", funs(replace(.,is.na(.), 0))) %>%
+          mutate(corr_tsa = tsa + pred_fiffs)
+    #+ ---------------------------------
+    #' ### Vizualizing the corrected Pameseb61 tsa
+      #+ ---------------------------------  
+      #' #### Timeseries
+        corr_tsa.time.plot <- h.render_plot(records.df = test.key.df, sensor_name.chr = "corr_tsa", plot.chr = "timeSerie")
+      #+ ---------------------------------
+      #' #### Bland-Altman
+        corr_bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(test.key.df, "corr_tsa"), output="plot")
+        corr_bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(test.key.df, "corr_tsa"), output="table")
 #+ ---------------------------------
 #' ## Terms of service 
 #' To use the [AGROMET API](https://app.pameseb.be/fr/pages/api_call_test/) you need to provide your own user token.  
