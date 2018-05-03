@@ -269,46 +269,46 @@
           )
         # remove key from the task as we don't want it as explanatory variable
           regr.task <- dropFeatures(task = regr.task, features = "key")
-      #+ ---------------------------------    
-      #' #### Defining the learners
-      #+ --------------------------------- 
-      #' ##### create the response learner
-        resp.regr.lrn = mlr::makeLearner(
-          cl = "regr.lm",
-          id = "re.regr.lm",
-          predict.type = "response"
-        )
-      #+ --------------------------------- 
-      #' ##### Create the standard error learner
-        se.regr.lrn = mlr::makeLearner(
-          cl = "regr.lm",
-          id = "re.regr.lm",
-          predict.type = "se"
-        )
-      #+ ---------------------------------    
-      #' #### Training the learners
-        # train the resp learner to create the regr model on our dataset
-          resp.regr.mod = train(resp.regr.lrn, regr.task)
-        # train the se learner to create the model on our dataset
-          se.regr.mod = train(se.regr.lrn, regr.task)
-      #+ ---------------------------------  
-      #' #### Computing & visualizing the predictions using the model
-      #+ ---------------------------------      
-      #' ##### Compute the model prediction for tsa_diff using ensPameseb and vvtPameseb for each hourly records
-        resp.task.pred = predict(
-          object = resp.regr.mod,
-          task = regr.task
-        )
-      #+ ---------------------------------      
-      #' ##### Compute the model SE for tsa_diff using ensPameseb and vvtPameseb for each hourly records
-        se.task.pred = predict(
-          object = se.regr.mod,
-          task = regr.task
-        )
-      #+ ---------------------------------  
-      #' #### Measuring the performance of the model
-        # performance indicators
-          resp.regr.perf <- performance(resp.task.pred, measures = list(mse, medse, mae))
+      #' #+ ---------------------------------    
+      #' #' #### Defining the learners
+      #' #+ --------------------------------- 
+      #' #' ##### create the response learner
+      #'   resp.regr.lrn = mlr::makeLearner(
+      #'     cl = "regr.lm",
+      #'     id = "re.regr.lm",
+      #'     predict.type = "response"
+      #'   )
+      #' #+ --------------------------------- 
+      #' #' ##### Create the standard error learner
+      #'   se.regr.lrn = mlr::makeLearner(
+      #'     cl = "regr.lm",
+      #'     id = "re.regr.lm",
+      #'     predict.type = "se"
+      #'   )
+      #' #+ ---------------------------------    
+      #' #' #### Training the learners
+      #'   # train the resp learner to create the regr model on our dataset
+      #'     resp.regr.mod = train(resp.regr.lrn, regr.task)
+      #'   # train the se learner to create the model on our dataset
+      #'     se.regr.mod = train(se.regr.lrn, regr.task)
+      #' #+ ---------------------------------  
+      #' #' #### Computing & visualizing the predictions using the model
+      #' #+ ---------------------------------      
+      #' #' ##### Compute the model prediction for tsa_diff using ensPameseb and vvtPameseb for each hourly records
+      #'   resp.task.pred = predict(
+      #'     object = resp.regr.mod,
+      #'     task = regr.task
+      #'   )
+      #' #+ ---------------------------------      
+      #' #' ##### Compute the model SE for tsa_diff using ensPameseb and vvtPameseb for each hourly records
+      #'   se.task.pred = predict(
+      #'     object = se.regr.mod,
+      #'     task = regr.task
+      #'   )
+      #' #+ ---------------------------------  
+      #' #' #### Measuring the performance of the model
+      #'   # performance indicators
+      #'     resp.regr.perf <- performance(resp.task.pred, measures = list(mse, medse, mae))
       #+ ---------------------------------  
       #' #### Model validation using a custom Holdout strategy - training = ens > q70(ens) & val = daily_max
         # Validating the model with a custom Holdout strategy
@@ -377,31 +377,24 @@
         bind_cols(sub.val.mod.pameseb61.df)
     # joining the validation set containing the corrected data to the original dataframe
       test.key.df <- no_extra_filter$records.df %>%
-        dplyr::filter(sid=="61") %>%
+        #dplyr::filter(sid=="61") %>%
         left_join(pred_diffs.df, by="key")
   #+ ---------------------------------
   #' ### Merging corrected data observations with non-corrected data (i.e. only at observations corresponding to daily_max - which are our validation set) 
-
-      #::todo::
-      tsa_diff.df <- inds.pameseb61.df["tsa_diff"]
-      tsa_corr.df <- bind_cols(tsa_wide.df, tsa_diff.df, pred_tsa_diff.df)
-      tsa_corr.df <- data.frame(tsa_corr.df)
+    # for BA but is quite useless because ba will compute these
+      # test.key.df <- test.key.df %>%
+      # mutate(corr_diffs = coalesce(pred_fiffs, diffs))
   #+ ---------------------------------
-  #' ### Correcting the measured tsa with the predicted tsa_diff
-    # adding the corrected tsa to the dataframe
-      tsa_corr.df <- mutate(tsa_corr.df, tsa_61_corr = tsa_61 - pred_tsa_diff)
+  #' ### Calculating the corrected temperature using the corr_diffs (i.e. only at observations corresponding to daily_max)
+    test.key.df <- test.key.df %>%
+      #dplyr::filter(sid=="61") %>%
+        mutate_at(.vars="pred_fiffs", funs(replace(.,is.na(.), 0))) %>%
+        mutate(corr_tsa = tsa - pred_fiffs)
   #+ ---------------------------------
   #' ### Vizualizing the corrected Pameseb61 tsa
-    #+ ---------------------------------
-    #' #### keeping what we need 
-      # only the temperatures and not the differences
-        tsa_corr.df <- dplyr::select(tsa_corr.df, one_of(c("mtime","tsa_61","tsa_1000", "tsa_61_corr")))
     #+ ---------------------------------  
     #' #### Timeseries
-      # making long format again for easier plotting of the timeserie
-        tsa_corr_long.df <-  data.frame(gather(tsa_corr.df , station, tsa, tsa_61, tsa_1000, tsa_61_corr, -mtime))
-      # ploting the timeserie
-        tsa_tsa_corr.time.plot <- h.render_plot(tsa_corr_long.df , plot.chr= "timeSerie", "tsa")
+      corr_tsa.time.plot <- h.render_plot(records.df = test.key.df, sensor_name.chr = "corr_tsa", plot.chr = "timeSerie")
     #+ ---------------------------------
     #' #### Bland-Altman
       colnames(tsa_corr_long.df) <- c("mtime", "sid", "tsa")
