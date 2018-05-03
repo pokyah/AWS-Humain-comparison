@@ -213,6 +213,10 @@
   #+ ---------------------------------
     # using the compare_data function on various subsets 
       no_extra_filter <- compare_data(records.df = records.df, filter.chr="no_extra_filter")
+    # creating a joining key var and making it numeric
+      no_extra_filter$records.df <- rownames_to_column(df = no_extra_filter$records.df, var = "key" )
+      no_extra_filter$records.df <- no_extra_filter$records.df %>%
+        mutate_at("key", as.numeric)
       # up10deg <- compare_data(records.df = records.df, filter.chr="up10deg")
       # low_rad_high_wind <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind")
       # low_rad_high_wind_up10 <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind_up10")
@@ -230,25 +234,29 @@
   #+ correction-model, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
     #::todo::build_corr_model <- function(records.df, resampling.chr, subset){
       #+ ---------------------------------
+      #' ### Tidying data to only keep what we need for modelling purpose : tsa_diff + ens + vvt 
+        # Filtering the dataset.
+          mod.pameseb61.df <- no_extra_filter$records.df %>%
+            dplyr::filter(sid=="61") %>%
+            dplyr::select(one_of("ens","vvt","diffs","key"))
+          mod.pameseb61.df <- data.frame(mod.pameseb61.df)
+          h.check_NA(mod.pameseb61.df)
+        # # mlr package does not accept posixct ==> converting mtime to timestamps
+        #   mod.pameseb61.df <- mod.pameseb61.df %>%
+        #     mutate_at(.vars="mtime", function(x){as.numeric(x)})
+      #+ ---------------------------------
       #' ### Tidying data to keep what we need for resampling strategy elaboration 
         inds.pameseb61.df <- no_extra_filter$records.df %>%
           dplyr::filter(sid=="61") %>%
-          dplyr::select(one_of("ci","daily_max"))
-        inds.pameseb61.df <- data.frame(mod.pameseb61.df)
-        h.check_NA(mod.pameseb61.df)
-          #+ ---------------------------------
-          #' #### extracting the indices of mtime where tsa = daily_max : validation set for future holdout resampling method
-            daily_max_inds.df <- which(mod.pameseb61.df$tsa==mod.pameseb61.df$daily_max)
-          #+ ---------------------------------  
-          #' #### extracting the indices of mtime where ens > q70(ens) : training set for future holdout resampling method
-            high_rad_inds.df <- which(mod.pameseb61.df$ens>=quantile(x = mod.pameseb61.df$ens, probs=0.7 ))  
+          dplyr::select(one_of("ci","tsa", "daily_max", "ens", "key"))
+        inds.pameseb61.df <- data.frame(inds.pameseb61.df)
+        h.check_NA(inds.pameseb61.df)    
       #+ ---------------------------------
-      #' ### Tidying data to only keep what we need for modelling purpose : tsa_diff + ens + vvt 
-        mod.pameseb61.df <- no_extra_filter$records.df %>%
-          dplyr::filter(sid=="61") %>%
-          dplyr::select(one_of("ens","vvt","diffs"))
-        mod.pameseb61.df <- data.frame(mod.pameseb61.df)
-        h.check_NA(mod.pameseb61.df)
+      #' #### extracting the indices of mtime where tsa = daily_max : validation set for future holdout resampling method
+        daily_max_inds.df <- which(inds.pameseb61.df$tsa==inds.pameseb61.df$daily_max)
+      #+ ---------------------------------  
+      #' #### extracting the indices of mtime where ens > q70(ens) : training set for future holdout resampling method
+        high_rad_inds.df <- which(inds.pameseb61.df$ens>=quantile(x = inds.pameseb61.df$ens, probs=0.7 ))
       #+ ---------------------------------  
       #' #### Defining the modelization task using [mlr package](https://mlr-org.github.io/mlr-tutorial)
         # loading the mlr library
@@ -259,6 +267,8 @@
             data = mod.pameseb61.df,
             target = "diffs"
           )
+        # remove key from the task as we don't want it as explanatory variable
+          regr.task <- dropFeatures(task = regr.task, features = "key")
       #+ ---------------------------------    
       #' #### Defining the learners
       #+ --------------------------------- 
@@ -358,10 +368,22 @@
 #' #+ tsa_diff_correction, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
   #+ ---------------------------------
   #' ### Getting the output of the prediction model (pred_tsa_diff) for each hourly observation and binding together with observed tsa_diff and the tsa measured at Pameseb)
-    # Building the binding dataframe using multiple regressions outputs...
-      pred_tsa_diff.df <- fho.rspl$pred$data$response
-      colnames(pred_tsa_diff.df) <- "pred_tsa_diff"
-      tsa_diff.df <- (records.reshaped.df["tsa_diff"])
+    # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
+      pred_diffs.df <- data.frame(pred_fiffs = fho.rspl$pred$data$response)
+    # Filtering the mtime original dataset to only keep the keys of observations that were used as validation set
+      sub.val.mod.pameseb61.df <- select(subset(mod.pameseb61.df, row.names(mod.pameseb61.df) %in% daily_max_inds.df), "key")    
+    # binding cols of the corrected data with the keys of validation set of the original dataframe use for modelling
+      pred_diffs.df <- pred_diffs.df %>%
+        bind_cols(sub.val.mod.pameseb61.df)
+    # joining the validation set containing the corrected data to the original dataframe
+      test.key.df <- no_extra_filter$records.df %>%
+        dplyr::filter(sid=="61") %>%
+        left_join(pred_diffs.df, by="key")
+  #+ ---------------------------------
+  #' ### Merging corrected data observations with non-corrected data (i.e. only at observations corresponding to daily_max - which are our validation set) 
+
+      #::todo::
+      tsa_diff.df <- inds.pameseb61.df["tsa_diff"]
       tsa_corr.df <- bind_cols(tsa_wide.df, tsa_diff.df, pred_tsa_diff.df)
       tsa_corr.df <- data.frame(tsa_corr.df)
   #+ ---------------------------------
