@@ -307,7 +307,8 @@
           set.seed(1985)
           bmr.l <- benchmark(learners = lrns.l, tasks = regr.tasks.l, resamplings = rsmpls.l)
 
-          
+          # Get the predictions from bmr
+          predictions.l <- getBMRPredictions(bmr.l)
 
         #' #+ ---------------------------------    
         #' #' #### Defining the learners
