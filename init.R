@@ -238,33 +238,40 @@
         # Filtering the dataset.
           mod.pameseb61.df <- no_extra_filter$records.df %>%
             dplyr::filter(sid=="61") %>%
-            dplyr::filter(day==TRUE) %>%  
-            dplyr::select(one_of("tsa", "daily_max", "ens", "ci", "vvt", "diffs","key","day"))
+            dplyr::select(one_of("tsa", "daily_max", "ens", "ci", "vvt", "diffs","key","day", "means", "mtime"))
           mod.pameseb61.df <- data.frame(mod.pameseb61.df)
           h.check_NA(mod.pameseb61.df)
         #+ ---------------------------------
         #' #### extracting the indices of mtime where tsa = daily_max : validation set for future holdout resampling method
-          daily_max_inds.df <- which(mod.pameseb61.df$tsa == mod.pameseb61.df$daily_max)
+          # daily_max_inds.df <- which(mod.pameseb61.df$tsa == mod.pameseb61.df$daily_max)
+          daily_max_inds.df <- mod.pameseb61.df %>%
+            dplyr::filter(tsa == daily_max) %>%
+            dplyr::select(key)
         #+ ---------------------------------  
-        #' #### extracting the indices of mtime where ens > q70(ens) : training set for future holdout resampling method
-          high_rad_inds.df <- which(mod.pameseb61.df$ens>=quantile(x = mod.pameseb61.df$ens, probs=0.70 ))
+        #' #### extracting the indices of mtime where ens > q70(ens(day)) : training set for future holdout resampling method
+          # high_rad_inds.df <- which(mod.pameseb61.df$ens>=quantile(x = mod.pameseb61.df$ens, probs=0.70 ))
+          high_rad_inds.df <- mod.pameseb61.df %>%
+            dplyr::filter(day == TRUE) %>%
+            dplyr::filter(ens >= quantile(x = .$ens, probs=0.70 )) %>%
+            dplyr::select(key)
         #+ ---------------------------------  
         #' #### extracting the indices of mtime where ci > q70(ci(day)) : training set for future holdout resampling method
           # high_ci_inds.df <- which(mod.pameseb61.df$ci>=quantile(x = mod.pameseb61.df$ci, probs=0.70 ))
-          high_ci_inds.df <- which(
-            mod.pameseb61.df$ci>=quantile(x = mod.pameseb61.df$ci, probs=0.70 ) &&
-            mod.pameseb61.df$day==TRUE  
-              )
-      #' ### Remove the useless features
+          high_ci_inds.df <- mod.pameseb61.df %>%
+            dplyr::filter(day == TRUE, ci >= quantile(x = .$ci, probs=0.70 )) %>%
+            dplyr::select(key)
+      #' ### We have the indices, we can remove the useless features by keeping only ens, vvt and diffs for station Pameseb61
       # Filtering the dataset.
-        mod.features.pameseb61.df <- no_extra_filter$records.df %>%
-          dplyr::select(one_of("ens", "vvt", "diffs"))
-        mod.pameseb61.df <- data.frame(mod.pameseb61.df)
-        h.check_NA(mod.pameseb61.df)  
+        mod.feat.pameseb61.df <- no_extra_filter$records.df %>%
+          dplyr::filter(sid=="61") %>%
+          dplyr::select(one_of("ens", "vvt", "diffs" ))
+        mod.feat.pameseb61.df <- data.frame(mod.feat.pameseb61.df)
+        h.check_NA(mod.feat.pameseb61.df)  
       #+ ---------------------------------
       #' ### Defining the modelization task using [mlr package](https://mlr-org.github.io/mlr-tutorial)
         # loading the mlr library
           library(mlr)
+          set.seed(1985)
           #+ ---------------------------------
           #' ##### defining a benchmark experiment to compare various methods
           # Define the learners to be compared
@@ -276,134 +283,102 @@
               holdout.rdesc = makeResampleDesc("Holdout"),
               cv200.rdesc = makeResampleDesc("CV", iters = 200),
               high_rad.holdout.rdesc = makeFixedHoldoutInstance(
-               train.inds = high_rad_inds.df,
-               test.inds = daily_max_inds.df,
-               size=nrow(mod.features.pameseb61.df)
+               train.inds = high_rad_inds.df[[1]],
+               test.inds = daily_max_inds.df[[1]],
+               size=nrow(mod.feat.pameseb61.df)
               ),
               high_ci.holdout.rdesc = makeFixedHoldoutInstance(
-               train.inds = high_ci_inds.df,
-               test.inds = daily_max_inds.df,
-               size=nrow(mod.features.pameseb61.df)
+               train.inds = high_ci_inds.df[[1]],
+               test.inds = daily_max_inds.df[[1]],
+               size=nrow(mod.feat.pameseb61.df)
               )
             )
           # defines the tasks (all the same but mlr needs a task by resampling strategy)
             regr.tasks.l = list(
               regr.task1 = mlr::makeRegrTask(
-                id = "regr1",
-                data = mod.features.pameseb61.df,
+                id = "regr.holdout",
+                data = mod.feat.pameseb61.df,
                 target = "diffs"
               ),
               regr.task2 = mlr::makeRegrTask(
-                id = "regr2",
-                data = mod.features.pameseb61.df,
+                id = "regr.cv200",
+                data = mod.feat.pameseb61.df,
                 target = "diffs"
               ),
               regr.task3 = mlr::makeRegrTask(
-                id = "regr3",
+                id = "regr.high_rad",
+                data = mod.feat.pameseb61.df,
                 target = "diffs"
               ),
               regr.task4 = mlr::makeRegrTask(
-                id = "regr4",
-                data = mod.features.pameseb61.df,
+                id = "regr.high_ci",
+                data = mod.feat.pameseb61.df,
                 target = "diffs"
               ))
-          # Conduct a benchmark experiment
-            set.seed(1985)
+          # Conduct the benchmark experiment
             bmr.l <- benchmark(learners = lrns.l, tasks = regr.tasks.l, resamplings = rsmpls.l)
-
           # Get the predictions from bmr
           predictions.l <- getBMRPredictions(bmr.l)
-
-        #' #+ ---------------------------------    
-        #' #' #### Defining the learners
-        #' #+ --------------------------------- 
-        #' #' ##### create the response learner
-        #'   resp.regr.lrn = mlr::makeLearner(
-        #'     cl = "regr.lm",
-        #'     id = "re.regr.lm",
-        #'     predict.type = "response"
-        #'   )
-        #' #+ --------------------------------- 
-        #' #' ##### Create the standard error learner
-        #'   se.regr.lrn = mlr::makeLearner(
-        #'     cl = "regr.lm",
-        #'     id = "re.regr.lm",
-        #'     predict.type = "se"
-        #'   )
-        #' #+ ---------------------------------    
-        #' #' #### Training the learners
-        #'   # train the resp learner to create the regr model on our dataset
-        #'     resp.regr.mod = train(resp.regr.lrn, regr.task)
-        #'   # train the se learner to create the model on our dataset
-        #'     se.regr.mod = train(se.regr.lrn, regr.task)
-        #' #+ ---------------------------------  
-        #' #' #### Computing & visualizing the predictions using the model
-        #' #+ ---------------------------------      
-        #' #' ##### Compute the model prediction for tsa_diff using ensPameseb and vvtPameseb for each hourly records
-        #'   resp.task.pred = predict(
-        #'     object = resp.regr.mod,
-        #'     task = regr.task
-        #'   )
-        #' #+ ---------------------------------      
-        #' #' ##### Compute the model SE for tsa_diff using ensPameseb and vvtPameseb for each hourly records
-        #'   se.task.pred = predict(
-        #'     object = se.regr.mod,
-        #'     task = regr.task
-        #'   )
-        #' #+ ---------------------------------  
-        #' #' #### Measuring the performance of the model
-        #'   # performance indicators
-        #'     resp.regr.perf <- performance(resp.task.pred, measures = list(mse, medse, mae))
-        #+ ---------------------------------  
-        #' #### Model validation using a custom Holdout strategy - training = ens > q60(ens) & val = daily_max
-          # Validating the model with a custom Holdout strategy
-            q70.fho.rspl.desc = makeFixedHoldoutInstance(train.inds = high_rad_inds.df, test.inds = daily_max_inds.df, size=nrow(inds.pameseb61.df))
-            q70.fho.rspl = resample(resp.regr.lrn, regr.task, fho.rspl.desc, models=TRUE)
-        #+ ---------------------------------  
-        #' #### Model validation using a 200 folds Cross Validation on the whole dataset
-          # Validating the model with a resampling strategy CV 200
-            #cv200.rspl.desc = makeResampleDesc("CV", iters = 200)
-            #cv200.rspl = resample(resp.regr.lrn, regr.task, cv200.rspl.desc)
-        #+ --------------------------------- 
-        #' #### Returning the outputs
-        # Create the list containing all the outputs
-      #::todo::}
-  #+ ---------------------------------
-  #' ## Pameseb61 observed temperature correction using the tsa_diff prediction model.
-  #' #+ tsa_diff_correction, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
     #+ ---------------------------------
-    #' ### Getting the output of the prediction model (pred_tsa_diff) for each hourly observation and binding together with observed tsa_diff and the tsa measured at Pameseb)
-      # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
-        pred_diffs.df <- data.frame(pred_fiffs = q70.fho.rspl$pred$data$response)
-      # Filtering the mtime original dataset to only keep the keys of observations that were used as validation set
-        sub.val.mod.pameseb61.df <- select(subset(mod.pameseb61.df, row.names(mod.pameseb61.df) %in% daily_max_inds.df), "key")    
-      # binding cols of the corrected data with the keys of validation set of the original dataframe use for modelling
-        pred_diffs.df <- pred_diffs.df %>%
-          bind_cols(sub.val.mod.pameseb61.df)
-      # joining the validation set containing the corrected data to the original dataframe
-        test.key.df <- no_extra_filter$records.df %>%
-          #dplyr::filter(sid=="61") %>%
-          left_join(pred_diffs.df, by="key")
-    #+ ---------------------------------
-    #' ### Merging corrected data observations with non-corrected data (i.e. only at observations corresponding to daily_max - which are our validation set) 
-      # for BA but is quite useless because ba will compute these
-        # test.key.df <- test.key.df %>%
-        # mutate(corr_diffs = coalesce(pred_fiffs, diffs))
-    #+ ---------------------------------
-    #' ### Calculating the corrected temperature using the corr_diffs (i.e. only at observations corresponding to daily_max)
-      test.key.df <- test.key.df %>%
-        #dplyr::filter(sid=="61") %>%
-          mutate_at(.vars="pred_fiffs", funs(replace(.,is.na(.), 0))) %>%
-          mutate(corr_tsa = tsa + pred_fiffs)
-    #+ ---------------------------------
-    #' ### Vizualizing the corrected Pameseb61 tsa
-      #+ ---------------------------------  
-      #' #### Timeseries
-        corr_tsa.time.plot <- h.render_plot(records.df = test.key.df, sensor_name.chr = "corr_tsa", plot.chr = "timeSerie")
+    #' ### Pameseb61 observed temperature corrections using the tsa_diff prediction models.
+    #' #+ tsa_diff_correction, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
       #+ ---------------------------------
-      #' #### Bland-Altman
-        corr_bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(test.key.df, "corr_tsa"), output="plot")
-        corr_bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(test.key.df, "corr_tsa"), output="table")
+      #' #### Binding the output of the prediction models with the original data
+        # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
+          cv200_pred_diffs.df <- predictions.l$regr.cv200$regr.lm$data %>%
+            dplyr::select(one_of(c("id","response"))) %>%
+            dplyr::rename(response.cv200 = response)
+          
+          high_ci_pred_diffs.df <- predictions.l$regr.high_ci$regr.lm$data %>%
+            dplyr::select(one_of(c("id","response"))) %>%
+            dplyr::rename(response.high_ci = response)
+          
+          high_rad_pred_diffs.df <- predictions.l$regr.high_rad$regr.lm$data %>%
+            dplyr::select(one_of(c("id","response"))) %>%
+            dplyr::rename(response.high_rad = response)
+          
+        # Joining mlr pred output id column with original dataframe key column (original being the Pameseb61 one)
+          test.mod.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
+          test.mod.pameseb61.df <- left_join(test.mod.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
+          test.mod.pameseb61.df <- left_join(test.mod.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
+          
+        # Preds diffs were computed on validation sets ==> NA values will be replace by the true diff (i.e. we only correct the diffs on the mtime obs corresponding to the validation set)
+          test.mod.pameseb61.df <- test.mod.pameseb61.df %>%
+            mutate(co.response.cv200 = coalesce(response.cv200, diffs)) %>%
+            mutate(co.response.high_ci = coalesce(response.high_ci, diffs)) %>%
+            mutate(co.response.high_rad = coalesce(response.high_rad, diffs))
+      #+ ---------------------------------
+      #' #### Calculating the corrected temperatures
+          test.mod.pameseb61.df <- test.mod.pameseb61.df %>%
+            mutate(corr.cv200 = tsa + co.response.cv200) %>%
+            mutate(corr.high_ci = tsa + co.response.high_ci) %>%
+            mutate(corr.high_rad = tsa + co.response.high_rad)
+      #+ ---------------------------------
+      #' ### Vizualizing the corrected Pameseb61 tsa
+        #+ ---------------------------------  
+        #' #### Timeseries
+          # gathering data
+          test <- test.mod.pameseb61.df %>% 
+            select(matches("corr."), "tsa", "mtime") %>%
+            rename(tsa_61 = tsa) %>%
+            gather(tsa_status, tsa, -mtime)
+          # adding the RMI data
+          irm_tsa <- data.frame(no_extra_filter$records.df %>%
+            dplyr::filter(sid=="1000") %>%
+            dplyr::select(one_of("mtime", "sid", "tsa")) %>%
+            rename(tsa_status = sid)) 
+          test <- bind_rows(test, irm_tsa)
+          corr_tsa.time.plot <- h.render_plot(records.df = test, sensor_name.chr = "tsa", plot.chr = "timeSerie")
+        #+ ---------------------------------
+        #' #### Bland-Altman
+          corr_bland_altman.plot <- h.compute_ba(
+            records.wide.df= h.make_wide(
+              input_records.df = ,
+              sensor_name.chr = "tsa"
+            ),
+            output="plot"
+          )
+          corr_bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(test, "corr_tsa"), output="table")
 #+ ---------------------------------
 #' ## Terms of service 
 #' To use the [AGROMET API](https://app.pameseb.be/fr/pages/api_call_test/) you need to provide your own user token.  
