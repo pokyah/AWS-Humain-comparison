@@ -230,7 +230,7 @@
 #' ## Correcting the tsa-diff
   #+ ---------------------------------
   #' ### Declaration of the Function to build tsa-diff Correction models
-  #' We build a model aimed at predicting the T°IRM - T°Pameseb diffs according to tsa and ens observed at Pameseb61
+  #' We build a model aimed at predicting the T°IRM - T°Pameseb diffs according to tsa and ens or CI observed at Pameseb61
   #+ correction-model, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
     #::todo::build_corr_model <- function(records.df, resampling.chr, subset){
       #+ ---------------------------------
@@ -239,7 +239,7 @@
           mod.pameseb61.df <- no_extra_filter$records.df %>%
             dplyr::filter(sid=="61") %>%
             dplyr::filter(day==TRUE) %>%  
-            dplyr::select(one_of("tsa", "daily_max", "ens", "ci", "vvt", "diffs","key"))
+            dplyr::select(one_of("tsa", "daily_max", "ens", "ci", "vvt", "diffs","key","day"))
           mod.pameseb61.df <- data.frame(mod.pameseb61.df)
           h.check_NA(mod.pameseb61.df)
         #+ ---------------------------------
@@ -249,63 +249,67 @@
         #' #### extracting the indices of mtime where ens > q70(ens) : training set for future holdout resampling method
           high_rad_inds.df <- which(mod.pameseb61.df$ens>=quantile(x = mod.pameseb61.df$ens, probs=0.70 ))
         #+ ---------------------------------  
-        #' #### extracting the indices of mtime where ci > q70(ci) : training set for future holdout resampling method
-          high_ci_inds.df <- which(mod.pameseb61.df$ci>=quantile(x = mod.pameseb61.df$ci, probs=0.70 ))
-        #' ### REmove the useless features
-        # Filtering the dataset.
+        #' #### extracting the indices of mtime where ci > q70(ci(day)) : training set for future holdout resampling method
+          # high_ci_inds.df <- which(mod.pameseb61.df$ci>=quantile(x = mod.pameseb61.df$ci, probs=0.70 ))
+          high_ci_inds.df <- which(
+            mod.pameseb61.df$ci>=quantile(x = mod.pameseb61.df$ci, probs=0.70 ) &&
+            mod.pameseb61.df$day==TRUE  
+              )
+      #' ### Remove the useless features
+      # Filtering the dataset.
         mod.features.pameseb61.df <- no_extra_filter$records.df %>%
           dplyr::select(one_of("ens", "vvt", "diffs"))
         mod.pameseb61.df <- data.frame(mod.pameseb61.df)
         h.check_NA(mod.pameseb61.df)  
-        #+ ---------------------------------
-        #' #### Defining the modelization task using [mlr package](https://mlr-org.github.io/mlr-tutorial)
-          # loading the mlr library
+      #+ ---------------------------------
+      #' ### Defining the modelization task using [mlr package](https://mlr-org.github.io/mlr-tutorial)
+        # loading the mlr library
           library(mlr)
           #+ ---------------------------------
           #' ##### defining a benchmark experiment to compare various methods
           # Define the learners to be compared
-          lrns.l = list(makeLearner("regr.lm"),
-                      makeLearner("regr.elmNN")
-                      )
+            lrns.l = list(makeLearner("regr.lm"),
+                           makeLearner("regr.elmNN")
+                          )
           # Define the validation strategies that we want to use
-          rsmpls.l = list(
-            holdout.rdesc = makeResampleDesc("Holdout"),
-            cv200.rdesc = makeResampleDesc("CV", iters = 200),
-            high_rad.holdout.rdesc = makeFixedHoldoutInstance(
-             train.inds = high_rad_inds.df,
-             test.inds = daily_max_inds.df,
-             size=nrow(mod.features.pameseb61.df)
-            ),
-            high_ci.holdout.rdesc = makeFixedHoldoutInstance(
-             train.inds = high_ci_inds.df,
-             test.inds = daily_max_inds.df,
-             size=nrow(mod.features.pameseb61.df)
+            rsmpls.l = list(
+              holdout.rdesc = makeResampleDesc("Holdout"),
+              cv200.rdesc = makeResampleDesc("CV", iters = 200),
+              high_rad.holdout.rdesc = makeFixedHoldoutInstance(
+               train.inds = high_rad_inds.df,
+               test.inds = daily_max_inds.df,
+               size=nrow(mod.features.pameseb61.df)
+              ),
+              high_ci.holdout.rdesc = makeFixedHoldoutInstance(
+               train.inds = high_ci_inds.df,
+               test.inds = daily_max_inds.df,
+               size=nrow(mod.features.pameseb61.df)
+              )
             )
-          )
           # defines the tasks (all the same but mlr needs a task by resampling strategy)
-          regr.tasks.l = list(
-            regr.task1 = mlr::makeRegrTask(
-              id = "regr1",
-              data = mod.features.pameseb61.df,
-              target = "diffs"
-            ),
-            regr.task2 = mlr::makeRegrTask(
-              id = "regr2",
-              data = mod.features.pameseb61.df,
-              target = "diffs"
-            ),
-            regr.task3 = mlr::makeRegrTask(
-              id = "regr3",
-              target = "diffs"
-            ),
-            regr.task4 = mlr::makeRegrTask(
-              id = "regr4",
-              data = mod.features.pameseb61.df,
-              target = "diffs"
-            ))
+            regr.tasks.l = list(
+              regr.task1 = mlr::makeRegrTask(
+                id = "regr1",
+                data = mod.features.pameseb61.df,
+                target = "diffs"
+              ),
+              regr.task2 = mlr::makeRegrTask(
+                id = "regr2",
+                data = mod.features.pameseb61.df,
+                target = "diffs"
+              ),
+              regr.task3 = mlr::makeRegrTask(
+                id = "regr3",
+                target = "diffs"
+              ),
+              regr.task4 = mlr::makeRegrTask(
+                id = "regr4",
+                data = mod.features.pameseb61.df,
+                target = "diffs"
+              ))
           # Conduct a benchmark experiment
-          set.seed(1985)
-          bmr.l <- benchmark(learners = lrns.l, tasks = regr.tasks.l, resamplings = rsmpls.l)
+            set.seed(1985)
+            bmr.l <- benchmark(learners = lrns.l, tasks = regr.tasks.l, resamplings = rsmpls.l)
 
           # Get the predictions from bmr
           predictions.l <- getBMRPredictions(bmr.l)
