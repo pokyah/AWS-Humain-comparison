@@ -238,7 +238,7 @@
         # Filtering the dataset.
           mod.pameseb61.df <- no_extra_filter$records.df %>%
             dplyr::filter(sid=="61") %>%
-            dplyr::select(one_of("tsa", "daily_max", "ens", "ci", "vvt", "diffs","key","day", "means", "mtime"))
+            dplyr::select(one_of("tsa", "daily_max", "ens", "ci", "vvt", "diffs","key", "day", "mtime", "sid"))
           mod.pameseb61.df <- data.frame(mod.pameseb61.df)
           h.check_NA(mod.pameseb61.df)
         #+ ---------------------------------
@@ -337,48 +337,84 @@
             dplyr::select(one_of(c("id","response"))) %>%
             dplyr::rename(response.high_rad = response)
           
-        # Joining mlr pred output id column with original dataframe key column (original being the Pameseb61 one)
-          test.mod.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
-          test.mod.pameseb61.df <- left_join(test.mod.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
-          test.mod.pameseb61.df <- left_join(test.mod.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
+        # Joining mlr pred output id column with original dataframe used for modelisation by key column (original being the Pameseb61 one)
+          corr.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
+          corr.pameseb61.df <- left_join(corr.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
+          corr.pameseb61.df <- left_join(corr.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
           
         # Preds diffs were computed on validation sets ==> NA values will be replace by the true diff (i.e. we only correct the diffs on the mtime obs corresponding to the validation set)
-          test.mod.pameseb61.df <- test.mod.pameseb61.df %>%
-            mutate(co.response.cv200 = coalesce(response.cv200, diffs)) %>%
-            mutate(co.response.high_ci = coalesce(response.high_ci, diffs)) %>%
-            mutate(co.response.high_rad = coalesce(response.high_rad, diffs))
-      #+ ---------------------------------
-      #' #### Calculating the corrected temperatures
-          test.mod.pameseb61.df <- test.mod.pameseb61.df %>%
+          corr.pameseb61.df <- corr.pameseb61.df %>%
+            mutate(co.response.cv200 = coalesce(response.cv200, 0)) %>%
+            mutate(co.response.high_ci = coalesce(response.high_ci, 0)) %>%
+            mutate(co.response.high_rad = coalesce(response.high_rad, 0))
+          #+ ---------------------------------
+          #' #### Calculating the corrected temperatures and removing the response columns
+          corr.pameseb61.df <- corr.pameseb61.df %>%
             mutate(corr.cv200 = tsa + co.response.cv200) %>%
             mutate(corr.high_ci = tsa + co.response.high_ci) %>%
-            mutate(corr.high_rad = tsa + co.response.high_rad)
-      #+ ---------------------------------
-      #' ### Vizualizing the corrected Pameseb61 tsa
-        #+ ---------------------------------  
-        #' #### Timeseries
-          # gathering data
-          test <- test.mod.pameseb61.df %>% 
-            select(matches("corr."), "tsa", "mtime") %>%
-            rename(tsa_61 = tsa) %>%
-            gather(tsa_status, tsa, -mtime)
-          # adding the RMI data
-          irm_tsa <- data.frame(no_extra_filter$records.df %>%
+            mutate(corr.high_rad = tsa + co.response.high_rad) %>%
+            dplyr::select(one_of(c("mtime", "sid", "tsa", "corr.cv200", "corr.high_ci", "corr.high_rad")))
+          h.check_NA(corr.pameseb61.df)
+          #+ ---------------------------------
+          #' #### Structuring RMI data in the same way for later joining
+          corr.irm1000.df <- no_extra_filter$records.df %>%
             dplyr::filter(sid=="1000") %>%
             dplyr::select(one_of("mtime", "sid", "tsa")) %>%
-            rename(tsa_status = sid)) 
-          test <- bind_rows(test, irm_tsa)
-          corr_tsa.time.plot <- h.render_plot(records.df = test, sensor_name.chr = "tsa", plot.chr = "timeSerie")
+            mutate(corr.cv200 = tsa) %>%
+            mutate(corr.high_ci = tsa) %>%
+            mutate(corr.high_rad = tsa)
+          corr.irm1000.df <- data.frame(corr.irm1000.df)
+          h.check_NA(corr.irm1000.df)
+          #+ ---------------------------------
+          #' #### joining RMI & Pameseb data
+          mod.corr.df <- bind_rows(
+            corr.pameseb61.df,
+            corr.irm1000.df
+          )
+          
+          wide.mod.corr.df <- mod.corr.df %>% 
+            rename(orig.tsa = tsa) %>%
+            gather(tsa_status, tsa, orig.tsa, corr.cv200, corr.high_ci, corr.high_rad, -sid, -mtime ) %>%
+            mutate(tsa_status = paste0(sid, ".", tsa_status)) %>%
+            dplyr::select(one_of(c("mtime", "tsa_status", "tsa"))) %>%
+            rename(sid = tsa_status) %>%
+            dplyr::filter(sid %in% c("61.orig.tsa", "61.corr.cv200", "61.corr.high_rad", "61.corr.high_ci", "1000.orig.tsa" ))
+
+      #+ ---------------------------------
+      #' ### Vizualizing the multiple corrected Pameseb61 tsa
+        #+ ---------------------------------  
+        #' #### Timeseries
+          corr.tsa.time.plot <- h.render_plot(records.df = wide.mod.corr.df, sensor_name.chr = "tsa", plot.chr = "timeSerie")
         #+ ---------------------------------
         #' #### Bland-Altman
-          corr_bland_altman.plot <- h.compute_ba(
+          corr.cv200.bland_altman.plot <- h.compute_ba(
             records.wide.df= h.make_wide(
-              input_records.df = ,
-              sensor_name.chr = "tsa"
+              dplyr::select(
+                mod.corr.df,
+                one_of(c("mtime","sid","corr.cv200"))),
+              sensor_name.chr = "corr.cv200"
+              ),
+            output="plot"
+          )
+          corr.high_ci.bland_altman.plot <- h.compute_ba(
+            records.wide.df= h.make_wide(
+              dplyr::select(
+                mod.corr.df,
+                one_of(c("mtime","sid","corr.high_ci"))),
+              sensor_name.chr = "corr.high_ci"
             ),
             output="plot"
           )
-          corr_bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(test, "corr_tsa"), output="table")
+          corr.high_rad.bland_altman.plot <- h.compute_ba(
+            records.wide.df= h.make_wide(
+              dplyr::select(
+                mod.corr.df,
+                one_of(c("mtime","sid","corr.high_rad"))),
+              sensor_name.chr = "corr.high_rad"
+            ),
+            output="plot"
+          )
+          corr.cv200.bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(test, "corr_tsa"), output="table")
 #+ ---------------------------------
 #' ## Terms of service 
 #' To use the [AGROMET API](https://app.pameseb.be/fr/pages/api_call_test/) you need to provide your own user token.  
