@@ -364,91 +364,92 @@
     #' ### Pameseb61 observed temperature corrections using the tsa_diff prediction models.
     #' #+ tsa_diff_correction, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
       #+ ---------------------------------
-      #' #### Binding the output of the prediction models with the original data
-        # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
-          cv200_pred_diffs.df <- predictions.l$regr.cv200$regr.lm$data %>%
-            dplyr::select(one_of(c("id","response"))) %>%
-            dplyr::rename(response.cv200 = response)
-          high_ci_pred_diffs.df <- predictions.l$regr.high_ci$regr.lm$data %>%
-            dplyr::select(one_of(c("id","response"))) %>%
-            dplyr::rename(response.high_ci = response)
-          high_rad_pred_diffs.df <- predictions.l$regr.high_rad$regr.lm$data %>%
-            dplyr::select(one_of(c("id","response"))) %>%
-            dplyr::rename(response.high_rad = response)
-        # Joining mlr pred output id column with original dataframe used for modelisation by key column (original being the Pameseb61 one)
-          corr.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
-          corr.pameseb61.df <- left_join(corr.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
-          corr.pameseb61.df <- left_join(corr.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
-        # Preds diffs were computed on validation sets ==> NA values will be replace by the true diff (i.e. we only correct the diffs on the mtime obs corresponding to the validation set)
-          corr.pameseb61.df <- corr.pameseb61.df %>%
-            mutate(co.response.cv200 = coalesce(response.cv200, 0)) %>%
-            mutate(co.response.high_ci = coalesce(response.high_ci, 0)) %>%
-            mutate(co.response.high_rad = coalesce(response.high_rad, 0))
-          #+ ---------------------------------
-          #' #### Calculating the corrected temperatures and removing the response columns
-          corr.pameseb61.df <- corr.pameseb61.df %>%
-            mutate(corr.cv200 = tsa + co.response.cv200) %>%
-            mutate(corr.high_ci = tsa + co.response.high_ci) %>%
-            mutate(corr.high_rad = tsa + co.response.high_rad) %>%
-            dplyr::select(one_of(c("mtime", "sid", "tsa", "corr.cv200", "corr.high_ci", "corr.high_rad")))
-          h.check_NA(corr.pameseb61.df)
-          #+ ---------------------------------
-          #' #### Structuring RMI data in the same way for later joining
-          corr.irm1000.df <- no_extra_filter$records.df %>%
-            dplyr::filter(sid=="1000") %>%
-            dplyr::select(one_of("mtime", "sid", "tsa")) %>%
-            mutate(corr.cv200 = tsa) %>%
-            mutate(corr.high_ci = tsa) %>%
-            mutate(corr.high_rad = tsa)
-          corr.irm1000.df <- data.frame(corr.irm1000.df)
-          h.check_NA(corr.irm1000.df)
-          #+ ---------------------------------
-          #' #### joining RMI & Pameseb data
-          mod.corr.df <- bind_rows(
-            corr.pameseb61.df,
-            corr.irm1000.df
-          )
-          wide.mod.corr.df <- mod.corr.df %>% 
-            rename(orig.tsa = tsa) %>%
-            gather(tsa_status, tsa, orig.tsa, corr.cv200, corr.high_ci, corr.high_rad, -sid, -mtime ) %>%
-            mutate(tsa_status = paste0(sid, ".", tsa_status)) %>%
-            dplyr::select(one_of(c("mtime", "tsa_status", "tsa"))) %>%
-            rename(sid = tsa_status) %>%
-            dplyr::filter(sid %in% c("61.orig.tsa", "61.corr.cv200", "61.corr.high_rad", "61.corr.high_ci", "1000.orig.tsa" ))
+      #' #### For each learner, binding the output of the prediction models with the original data
+        # function declaration
+          bind_orig_corr <- function(learner.chr, predictions.l){
+            # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
+            cv200_pred_diffs.df <- predictions.l[["regr.cv200"]][[learner.chr]][["data"]] %>%
+              dplyr::select(one_of(c("id","response"))) %>%
+              dplyr::rename(response.cv200 = response)
+            high_ci_pred_diffs.df <- predictions.l[["regr.high_ci"]][[learner.chr]][["data"]] %>%
+              dplyr::select(one_of(c("id","response"))) %>%
+              dplyr::rename(response.high_ci = response)
+            high_rad_pred_diffs.df <- predictions.l[["regr.high_rad"]][[learner.chr]][["data"]] %>%
+              dplyr::select(one_of(c("id","response"))) %>%
+              dplyr::rename(response.high_rad = response)
+            # Joining mlr pred output id column with original dataframe used for modelisation by key column (original being the Pameseb61 one)
+            corr.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
+            corr.pameseb61.df <- left_join(corr.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
+            corr.pameseb61.df <- left_join(corr.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
+            # Preds diffs were computed on validation sets ==> NA values will be replace by the true diff (i.e. we only correct the diffs on the mtime obs corresponding to the validation set)
+            corr.pameseb61.df <- corr.pameseb61.df %>%
+              mutate(co.response.cv200 = coalesce(response.cv200, 0)) %>%
+              mutate(co.response.high_ci = coalesce(response.high_ci, 0)) %>%
+              mutate(co.response.high_rad = coalesce(response.high_rad, 0))
+            #+ ---------------------------------
+            #' #### Calculating the corrected temperatures and removing the response columns
+            corr.pameseb61.df <- corr.pameseb61.df %>%
+              mutate(corr.cv200 = tsa + co.response.cv200) %>%
+              mutate(corr.high_ci = tsa + co.response.high_ci) %>%
+              mutate(corr.high_rad = tsa + co.response.high_rad) %>%
+              dplyr::select(one_of(c("mtime", "sid", "tsa", "corr.cv200", "corr.high_ci", "corr.high_rad")))
+            h.check_NA(corr.pameseb61.df)
+            #+ ---------------------------------
+            #' #### Structuring RMI data in the same way for later joining
+            corr.irm1000.df <- no_extra_filter$records.df %>%
+              dplyr::filter(sid=="1000") %>%
+              dplyr::select(one_of("mtime", "sid", "tsa")) %>%
+              mutate(corr.cv200 = tsa) %>%
+              mutate(corr.high_ci = tsa) %>%
+              mutate(corr.high_rad = tsa)
+            corr.irm1000.df <- data.frame(corr.irm1000.df)
+            h.check_NA(corr.irm1000.df)
+            #+ ---------------------------------
+            #' #### joining RMI & Pameseb data
+            mod.corr.df <- bind_rows(
+              corr.pameseb61.df,
+              corr.irm1000.df
+            )
+            #dupliactes problem hack
+            return(unique(mod.corr.df))
+          }
+          # applying the binding orig+corr for each learner and storing in a list
+          learners.corrections.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), bind_orig_corr, predictions.l)
       #+ ---------------------------------
       #' ### Vizualizing the multiple corrected Pameseb61 tsa
         #+ ---------------------------------  
-        #' #### Timeseries
-          corr.tsa.time.plot <- h.render_plot(records.df = wide.mod.corr.df, sensor_name.chr = "tsa", plot.chr = "timeSerie")
+        #' #### Build Timeseries plot for each validation strategy
+          corr.tsa.time.plot <- h.render_plot(
+            records.df = mod.corr.df %>% 
+              rename(orig.tsa = tsa) %>%
+              gather(tsa_status, tsa, orig.tsa, corr.cv200, corr.high_ci, corr.high_rad, -sid, -mtime ) %>%
+              mutate(tsa_status = paste0(sid, ".", tsa_status)) %>%
+              dplyr::select(one_of(c("mtime", "tsa_status", "tsa"))) %>%
+              rename(sid = tsa_status) %>%
+              dplyr::filter(sid %in% c("61.orig.tsa", "61.corr.cv200", "61.corr.high_rad", "61.corr.high_ci", "1000.orig.tsa" )),
+            sensor_name.chr = "tsa",
+            plot.chr = "timeSerie")
         #+ ---------------------------------
-        #' #### Bland-Altman
-          corr.cv200.bland_altman.plot <- h.compute_ba(
-            records.wide.df= h.make_wide(
-              dplyr::select(
-                mod.corr.df,
-                one_of(c("mtime","sid","corr.cv200"))),
-              sensor_name.chr = "corr.cv200"
-              ),
-            output="plot"
-          )
-          corr.high_ci.bland_altman.plot <- h.compute_ba(
-            records.wide.df= h.make_wide(
-              dplyr::select(
-                mod.corr.df,
-                one_of(c("mtime","sid","corr.high_ci"))),
-              sensor_name.chr = "corr.high_ci"
-            ),
-            output="plot"
-          )
-          corr.high_rad.bland_altman.plot <- h.compute_ba(
-            records.wide.df= h.make_wide(
-              dplyr::select(
-                mod.corr.df,
-                one_of(c("mtime","sid","corr.high_rad"))),
-              sensor_name.chr = "corr.high_rad"
-            ),
-            output="plot"
-          )
+        #' #### Build one Bland-Altman per validation srategy
+          make_ba_corr_plots_per_learner <- function(learner.chr, learners.corrections.l){
+            make_ba_corr_plots_per_correction <- function(correction.chr, corrections.df){
+              bland_altman.plot <- h.compute_ba(
+                records.wide.df= h.make_wide(
+                  dplyr::select(
+                    corrections.df,
+                    one_of(c("mtime","sid", correction.chr))),
+                  sensor_name.chr = correction.chr
+                ),
+                output="plot"
+              )
+            }
+            corrections_names.l <- as.list(colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches("corr."))))
+            names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches("corr.")))
+            
+            corrections.ba.corr.plots.l <- lapply(corrections_names.l, make_ba_corr_plots_per_correction, learners.corrections.l[[learner.chr]]) 
+          }
+          learners.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), make_ba_corr_plots_per_learner, learners.corrections.l)
+ 
 #+ ---------------------------------
 #' ## Terms of service 
 #' To use the [AGROMET API](https://app.pameseb.be/fr/pages/api_call_test/) you need to provide your own user token.  
