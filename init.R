@@ -247,7 +247,6 @@
           daily_max_inds.df <- mod.pameseb61.df %>%
             dplyr::filter(tsa == daily_max) %>%
             dplyr::select(key)
-          
           daily_max_mp2_inds.df <- dplyr::bind_rows(
             daily_max_inds.df +1,
             daily_max_inds.df -1,
@@ -374,72 +373,41 @@
             names(task_ids.l) <- sapply(task_ids.l, function(x) x)
             tasks_preds.l <- lapply((task_ids.l),
                    function(x) 
-                     predictions.l[[x]][["regr.lm"]][["data"]] %>%
+                     predictions.l[[x]][[learner.chr]][["data"]] %>%
                       dplyr::select(one_of(c("id","response"))) %>%
                       dplyr::rename(key=id)
             )
-            
-            # holdout_pred_diffs.df <- predictions.l[["regr.holdout"]][[learner.chr]][["data"]] %>%
-            #   dplyr::select(one_of(c("id","response"))) %>%
-            #   dplyr::rename(response.holdout = response)
-            # cv200_pred_diffs.df <- predictions.l[["regr.cv200"]][[learner.chr]][["data"]] %>%
-            #   dplyr::select(one_of(c("id","response"))) %>%
-            #   dplyr::rename(response.cv200 = response)
-            # high_ci_pred_diffs.df <- predictions.l[["regr.high_ci"]][[learner.chr]][["data"]] %>%
-            #   dplyr::select(one_of(c("id","response"))) %>%
-            #   dplyr::rename(response.high_ci = response)
-            # high_rad_pred_diffs.df <- predictions.l[["regr.high_rad"]][[learner.chr]][["data"]] %>%
-            #   dplyr::select(one_of(c("id","response"))) %>%
-            #   dplyr::rename(response.high_rad = response)
-            
             # Joining mlr pred output id column with original dataframe used for modelisation by key column (original being the Pameseb61 one)
             # https://stackoverflow.com/questions/33177118/append-a-data-frame-to-a-list
             # https://stackoverflow.com/questions/32066402/how-to-perform-multiple-left-joins-using-dplyr-in-r#32066419
+            # https://stackoverflow.com/questions/26219501/mutate-multiple-columns-in-a-dataframe
             a <- Reduce(function(...) merge(..., by="key", all.x=TRUE), c(list(orig = mod.pameseb61.df), tasks_preds.l))
             colnames(a) <- c("key",  colnames(mod.pameseb61.df)[-7], names(task_ids.l) )
-  
-            # corr.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
-            # corr.pameseb61.df <- left_join(corr.pameseb61.df, holdout_pred_diffs.df, by = c("key"="id"))
-            # corr.pameseb61.df <- left_join(corr.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
-            # corr.pameseb61.df <- left_join(corr.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
-            
             # Preds diffs were computed on validation sets ==> NA values will be replace by the true diff (i.e. we only correct the diffs on the mtime obs corresponding to the validation set)
             b <- a %>%
-              transmute_at(.vars = names(task_ids.l), function(x)coalesce(x, 0) )
-            
-            # corr.pameseb61.df <- corr.pameseb61.df %>%
-            #   mutate(co.response.holdout = coalesce(response.holdout, 0)) %>%
-            #   mutate(co.response.cv200 = coalesce(response.cv200, 0)) %>%
-            #   mutate(co.response.high_ci = coalesce(response.high_ci, 0)) %>%
-            #   mutate(co.response.high_rad = coalesce(response.high_rad, 0))
+              mutate_at(.vars = names(task_ids.l), function(x)coalesce(x, 0) )
             #+ ---------------------------------
             #' #### Calculating the corrected temperatures and removing the response columns
-            corr.pameseb61.df <- corr.pameseb61.df %>%
-              mutate(corr.holdout = tsa + co.response.holdout) %>%
-              mutate(corr.cv200 = tsa + co.response.cv200) %>%
-              mutate(corr.high_ci = tsa + co.response.high_ci) %>%
-              mutate(corr.high_rad = tsa + co.response.high_rad) %>%
-              dplyr::select(one_of(c("mtime", "sid", "tsa", "corr.holdout", "corr.cv200", "corr.high_ci", "corr.high_rad")))
-            h.check_NA(corr.pameseb61.df)
+            c <- b %>%
+              mutate_at(.vars = names(task_ids.l), .funs= funs(.+tsa) ) %>%
+              dplyr::select(one_of(c("mtime", "sid", "tsa", names(task_ids.l))) )
             #+ ---------------------------------
             #' #### Structuring RMI data in the same way for later joining
-            corr.irm1000.df <- no_extra_filter$records.df %>%
+            d <- no_extra_filter$records.df %>%
               dplyr::filter(sid=="1000") %>%
-              dplyr::select(one_of("mtime", "sid", "tsa")) %>%
-              mutate(corr.holdout = tsa) %>%
-              mutate(corr.cv200 = tsa) %>%
-              mutate(corr.high_ci = tsa) %>%
-              mutate(corr.high_rad = tsa)
-            corr.irm1000.df <- data.frame(corr.irm1000.df)
-            h.check_NA(corr.irm1000.df)
+              dplyr::select(one_of("mtime", "sid", "tsa")) 
+            d[,names(task_ids.l)] <- 0
+            d <- d %>%
+              mutate_at(.vars = names(task_ids.l), .funs= funs(.+tsa))
+            d <- data.frame(d)
             #+ ---------------------------------
             #' #### joining RMI & Pameseb data
-            mod.corr.df <- bind_rows(
-              corr.pameseb61.df,
-              corr.irm1000.df
+            e <- bind_rows(
+              c,
+              d
             )
             #dupliactes problem hack
-            return(unique(mod.corr.df))
+            e <- unique(e)
           }
           # applying the binding orig+corr for each learner and storing in a list
           learners.corrections.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), bind_orig_corr, predictions.l)
