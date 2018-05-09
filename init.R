@@ -288,17 +288,19 @@
                           )
           # Define the validation strategies that we want to use
             rsmpls.l = list(
-              holdout.rdesc = makeResampleDesc("Holdout"),
-              cv200.rdesc = makeResampleDesc("CV", iters = 200),
+              holdout.rdesc = makeResampleDesc("Holdout", predict = "both"),
+              cv200.rdesc = makeResampleDesc("CV", iters = 200, predict = "both"),
               high_rad.holdout.rdesc = makeFixedHoldoutInstance(
                train.inds = high_rad_inds.df[[1]],
                test.inds = daily_max_mp2_inds.df[[1]],
-               size=nrow(mod.feat.pameseb61.df)
+               size=nrow(mod.feat.pameseb61.df),
+               predict = "test"
               ),
               high_ci.holdout.rdesc = makeFixedHoldoutInstance(
                train.inds = high_ci_inds.df[[1]],
                test.inds = daily_max_mp2_inds.df[[1]],
-               size=nrow(mod.feat.pameseb61.df)
+               size=nrow(mod.feat.pameseb61.df),
+               predict = "test"
               ),
               below10.holdout.rdesc = makeResampleDesc("Holdout"),
               below10.cv200.rdesc = makeResampleDesc("CV", iters = 200),
@@ -368,6 +370,10 @@
         # function declaration
           bind_orig_corr <- function(learner.chr, predictions.l){
             # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
+            # getTaskDesc(regr.tasks.l[[1]])$id
+            holdout_pred_diffs.df <- predictions.l[["regr.holdout"]][[learner.chr]][["data"]] %>%
+              dplyr::select(one_of(c("id","response"))) %>%
+              dplyr::rename(response.holdout = response)
             cv200_pred_diffs.df <- predictions.l[["regr.cv200"]][[learner.chr]][["data"]] %>%
               dplyr::select(one_of(c("id","response"))) %>%
               dplyr::rename(response.cv200 = response)
@@ -379,26 +385,30 @@
               dplyr::rename(response.high_rad = response)
             # Joining mlr pred output id column with original dataframe used for modelisation by key column (original being the Pameseb61 one)
             corr.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
+            corr.pameseb61.df <- left_join(corr.pameseb61.df, holdout_pred_diffs.df, by = c("key"="id"))
             corr.pameseb61.df <- left_join(corr.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
             corr.pameseb61.df <- left_join(corr.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
             # Preds diffs were computed on validation sets ==> NA values will be replace by the true diff (i.e. we only correct the diffs on the mtime obs corresponding to the validation set)
             corr.pameseb61.df <- corr.pameseb61.df %>%
+              mutate(co.response.holdout = coalesce(response.holdout, 0)) %>%
               mutate(co.response.cv200 = coalesce(response.cv200, 0)) %>%
               mutate(co.response.high_ci = coalesce(response.high_ci, 0)) %>%
               mutate(co.response.high_rad = coalesce(response.high_rad, 0))
             #+ ---------------------------------
             #' #### Calculating the corrected temperatures and removing the response columns
             corr.pameseb61.df <- corr.pameseb61.df %>%
+              mutate(corr.holdout = tsa + co.response.holdout) %>%
               mutate(corr.cv200 = tsa + co.response.cv200) %>%
               mutate(corr.high_ci = tsa + co.response.high_ci) %>%
               mutate(corr.high_rad = tsa + co.response.high_rad) %>%
-              dplyr::select(one_of(c("mtime", "sid", "tsa", "corr.cv200", "corr.high_ci", "corr.high_rad")))
+              dplyr::select(one_of(c("mtime", "sid", "tsa", "corr.holdout", "corr.cv200", "corr.high_ci", "corr.high_rad")))
             h.check_NA(corr.pameseb61.df)
             #+ ---------------------------------
             #' #### Structuring RMI data in the same way for later joining
             corr.irm1000.df <- no_extra_filter$records.df %>%
               dplyr::filter(sid=="1000") %>%
               dplyr::select(one_of("mtime", "sid", "tsa")) %>%
+              mutate(corr.holdout = tsa) %>%
               mutate(corr.cv200 = tsa) %>%
               mutate(corr.high_ci = tsa) %>%
               mutate(corr.high_rad = tsa)
