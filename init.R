@@ -371,6 +371,14 @@
           bind_orig_corr <- function(learner.chr, predictions.l){
             # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
             # task_ids.chr <- sapply(regr.tasks.l,function(x) getTaskDesc(x)$id)  
+            
+           a <- lapply(as.list(task_ids.chr),
+                   function(x) 
+                     predictions.l[[x]][["regr.lm"]][["data"]] %>%
+                      dplyr::select(one_of(c("id","response"))) %>%
+                      dplyr::rename(response.holdout = response)
+            )
+            
             holdout_pred_diffs.df <- predictions.l[["regr.holdout"]][[learner.chr]][["data"]] %>%
               dplyr::select(one_of(c("id","response"))) %>%
               dplyr::rename(response.holdout = response)
