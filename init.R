@@ -370,38 +370,48 @@
         # function declaration
           bind_orig_corr <- function(learner.chr, predictions.l){
             # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
-            # task_ids.chr <- sapply(regr.tasks.l,function(x) getTaskDesc(x)$id)  
-            
-           a <- lapply(as.list(task_ids.chr),
+            task_ids.l <- lapply(regr.tasks.l,function(x) getTaskDesc(x)$id)  
+            names(task_ids.l) <- sapply(task_ids.l, function(x) x)
+            tasks_preds.l <- lapply((task_ids.l),
                    function(x) 
                      predictions.l[[x]][["regr.lm"]][["data"]] %>%
                       dplyr::select(one_of(c("id","response"))) %>%
-                      dplyr::rename(response.holdout = response)
+                      dplyr::rename(key=id)
             )
             
-            holdout_pred_diffs.df <- predictions.l[["regr.holdout"]][[learner.chr]][["data"]] %>%
-              dplyr::select(one_of(c("id","response"))) %>%
-              dplyr::rename(response.holdout = response)
-            cv200_pred_diffs.df <- predictions.l[["regr.cv200"]][[learner.chr]][["data"]] %>%
-              dplyr::select(one_of(c("id","response"))) %>%
-              dplyr::rename(response.cv200 = response)
-            high_ci_pred_diffs.df <- predictions.l[["regr.high_ci"]][[learner.chr]][["data"]] %>%
-              dplyr::select(one_of(c("id","response"))) %>%
-              dplyr::rename(response.high_ci = response)
-            high_rad_pred_diffs.df <- predictions.l[["regr.high_rad"]][[learner.chr]][["data"]] %>%
-              dplyr::select(one_of(c("id","response"))) %>%
-              dplyr::rename(response.high_rad = response)
+            # holdout_pred_diffs.df <- predictions.l[["regr.holdout"]][[learner.chr]][["data"]] %>%
+            #   dplyr::select(one_of(c("id","response"))) %>%
+            #   dplyr::rename(response.holdout = response)
+            # cv200_pred_diffs.df <- predictions.l[["regr.cv200"]][[learner.chr]][["data"]] %>%
+            #   dplyr::select(one_of(c("id","response"))) %>%
+            #   dplyr::rename(response.cv200 = response)
+            # high_ci_pred_diffs.df <- predictions.l[["regr.high_ci"]][[learner.chr]][["data"]] %>%
+            #   dplyr::select(one_of(c("id","response"))) %>%
+            #   dplyr::rename(response.high_ci = response)
+            # high_rad_pred_diffs.df <- predictions.l[["regr.high_rad"]][[learner.chr]][["data"]] %>%
+            #   dplyr::select(one_of(c("id","response"))) %>%
+            #   dplyr::rename(response.high_rad = response)
+            
             # Joining mlr pred output id column with original dataframe used for modelisation by key column (original being the Pameseb61 one)
-            corr.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
-            corr.pameseb61.df <- left_join(corr.pameseb61.df, holdout_pred_diffs.df, by = c("key"="id"))
-            corr.pameseb61.df <- left_join(corr.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
-            corr.pameseb61.df <- left_join(corr.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
+            # https://stackoverflow.com/questions/33177118/append-a-data-frame-to-a-list
+            # https://stackoverflow.com/questions/32066402/how-to-perform-multiple-left-joins-using-dplyr-in-r#32066419
+            a <- Reduce(function(...) merge(..., by="key", all.x=TRUE), c(list(orig = mod.pameseb61.df), tasks_preds.l))
+            colnames(a) <- c("key",  colnames(mod.pameseb61.df)[-7], names(task_ids.l) )
+  
+            # corr.pameseb61.df <- left_join(mod.pameseb61.df, cv200_pred_diffs.df, by = c("key"="id"))
+            # corr.pameseb61.df <- left_join(corr.pameseb61.df, holdout_pred_diffs.df, by = c("key"="id"))
+            # corr.pameseb61.df <- left_join(corr.pameseb61.df, high_ci_pred_diffs.df, by = c("key"="id"))
+            # corr.pameseb61.df <- left_join(corr.pameseb61.df, high_rad_pred_diffs.df, by = c("key"="id"))
+            
             # Preds diffs were computed on validation sets ==> NA values will be replace by the true diff (i.e. we only correct the diffs on the mtime obs corresponding to the validation set)
-            corr.pameseb61.df <- corr.pameseb61.df %>%
-              mutate(co.response.holdout = coalesce(response.holdout, 0)) %>%
-              mutate(co.response.cv200 = coalesce(response.cv200, 0)) %>%
-              mutate(co.response.high_ci = coalesce(response.high_ci, 0)) %>%
-              mutate(co.response.high_rad = coalesce(response.high_rad, 0))
+            b <- a %>%
+              transmute_at(.vars = names(task_ids.l), function(x)coalesce(x, 0) )
+            
+            # corr.pameseb61.df <- corr.pameseb61.df %>%
+            #   mutate(co.response.holdout = coalesce(response.holdout, 0)) %>%
+            #   mutate(co.response.cv200 = coalesce(response.cv200, 0)) %>%
+            #   mutate(co.response.high_ci = coalesce(response.high_ci, 0)) %>%
+            #   mutate(co.response.high_rad = coalesce(response.high_rad, 0))
             #+ ---------------------------------
             #' #### Calculating the corrected temperatures and removing the response columns
             corr.pameseb61.df <- corr.pameseb61.df %>%
