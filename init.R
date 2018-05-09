@@ -415,6 +415,24 @@
       #' ### Vizualizing the multiple corrected Pameseb61 tsa
         #+ ---------------------------------  
         #' #### Build Timeseries plot for each validation strategy
+          make_ts_corr_plots_per_learner <- function(learner.chr, learners.corrections.l){
+            make_ts_corr_plots_per_correction <- function(correction.chr, corrections.df){
+              time_serie.plot <- h.render_plot(
+                records.wide.df= h.make_wide(
+                  dplyr::select(
+                    corrections.df,
+                    one_of(c("mtime","sid", correction.chr))),
+                  sensor_name.chr = correction.chr
+                ),
+                output="plot"
+              )
+            }
+            corrections_names.l <- as.list(colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],".")))))
+            names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],"."))))
+            corrections.ba.corr.plots.l <- lapply(corrections_names.l, make_ba_corr_plots_per_correction, learners.corrections.l[[learner.chr]]) 
+          }
+          learners.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), make_ts_corr_plots_per_learner, learners.corrections.l)
+          
           corr.tsa.time.plot <- h.render_plot(
             records.df = mod.corr.df %>% 
               rename(orig.tsa = tsa) %>%
@@ -439,9 +457,8 @@
                 output="plot"
               )
             }
-            corrections_names.l <- as.list(colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches("corr."))))
-            names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches("corr.")))
-            
+            corrections_names.l <- as.list(colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],".")))))
+            names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],"."))))
             corrections.ba.corr.plots.l <- lapply(corrections_names.l, make_ba_corr_plots_per_correction, learners.corrections.l[[learner.chr]]) 
           }
           learners.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), make_ba_corr_plots_per_learner, learners.corrections.l)
