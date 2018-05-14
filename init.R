@@ -286,36 +286,117 @@
           #' ##### defining a benchmark experiment to compare various methods
           # Define the learners to be compared
             lrns.l = list(makeLearner("regr.lm"),
-                           makeLearner("regr.elmNN")
+                          makeLearner("regr.elmNN"),
+                          makeLearner("regr.fnn")
                           )
           
           # defines the tasks (all the same but mlr needs a task by resampling strategy)
-            regr.tasks.l = list(
-              regr.task.all.repcv = mlr::makeRegrTask(
-                id = "regr.repcv_5_100",
+            hci.regr.tasks.l = list(
+              regr.task.all.hci = mlr::makeRegrTask(
+                id = "regr.all.hci",
                 data = mod.feat.pameseb61.df,
                 target = "diffs"
               ),
-              regr.task.all.hc = mlr::makeRegrTask(
-                id = "regr.high_ci",
+              regr.task.ens.hci = mlr::makeRegrTask(
+                id = "regr.ens.hci",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("ens", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.vvt.hci = mlr::makeRegrTask(
+                id = "regr.vvt.hci",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("vvt", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.tsa.hci = mlr::makeRegrTask(
+                id = "regr.tsa.hci",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("tsa", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.ens_vvt.hci = mlr::makeRegrTask(
+                id = "regr.ens_vvt.hci",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("ens", "vvt", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.ens_tsa.hci = mlr::makeRegrTask(
+                id = "regr.ens_tsa.hci",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("ens", "tsa", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.vvt_tsa.hci = mlr::makeRegrTask(
+                id = "regr.vvt_tsa.hci",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("vvt", "tsa", "diffs"))),
+                target = "diffs"
+              )
+            )
+            
+            rnd.regr.tasks.l = list(
+              regr.task.all.rnd = mlr::makeRegrTask(
+                id = "regr.all.rnd",
                 data = mod.feat.pameseb61.df,
+                target = "diffs"
+              ),
+              regr.task.ens.rnd = mlr::makeRegrTask(
+                id = "regr.ens.rnd",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("ens", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.vvt.rnd = mlr::makeRegrTask(
+                id = "regr.vvt.rnd",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("vvt", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.tsa.rnd = mlr::makeRegrTask(
+                id = "regr.tsa.rnd",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("tsa", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.ens_vvt.rnd = mlr::makeRegrTask(
+                id = "regr.ens_vvt.rnd",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("ens", "vvt", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.ens_tsa.hci = mlr::makeRegrTask(
+                id = "regr.ens_tsa.rnd",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("ens", "tsa", "diffs"))),
+                target = "diffs"
+              ),
+              regr.task.vvt_tsa.rnd = mlr::makeRegrTask(
+                id = "regr.vvt_tsa.rnd",
+                data = dplyr::select(mod.feat.pameseb61.df, one_of(c("vvt", "tsa", "diffs"))),
                 target = "diffs"
               )
             )
             
           # Define the validation strategies that we want to use
-            rsmpls.l = list(
-              repcv_5_100.rdesc = makeResampleDesc("RepCV", folds = 5, reps = 100, predict = "both"),
-              high_ci.holdout.rdesc = makeFixedHoldoutInstance(
-               train.inds = high_ci_inds.df[[1]],
-               test.inds = daily_max_mp2_inds.df[[1]],
-               size=nrow(mod.feat.pameseb61.df),
-               predict = "test"
-              )
+            fixed_holdout_strategy = mlr::makeFixedHoldoutInstance(
+              train.inds = high_ci_inds.df[[1]],
+              test.inds = daily_max_mp2_inds.df[[1]],
+              size=nrow(mod.feat.pameseb61.df)
+            )
+            
+            hci.rsmpls.l = list(
+              regr.all.hci = fixed_holdout_strategy,
+              regr.ens.hci = fixed_holdout_strategy,
+              regr.vvt.hci = fixed_holdout_strategy,
+              regr.tsa.hci = fixed_holdout_strategy,
+              regr.ens_vvt.hci = fixed_holdout_strategy,
+              regr.ens_tsa.hci = fixed_holdout_strategy,
+              regr.vvt_tsa.hci = fixed_holdout_strategy
+            )
+            
+            rnd.rsmpls.l = list(
+              regr.all.rnd = makeResampleDesc("Holdout"),
+              regr.ens.rnd = makeResampleDesc("Holdout"),
+              regr.vvt.rnd = makeResampleDesc("Holdout"),
+              regr.tsa.rnd =  makeResampleDesc("Holdout"),
+              regr.ens_vvt.rnd = makeResampleDesc("Holdout"),
+              regr.ens_tsa.rnd = makeResampleDesc("Holdout"),
+              regr.vvt_tsa.rnd = makeResampleDesc("Holdout")
             )
           
           # Conduct the benchmark experiment
-            bmr.l <- benchmark(learners = lrns.l, tasks = regr.tasks.l, resamplings = rsmpls.l)
+            hci.bmr.l <- benchmark(learners = lrns.l, tasks = hci.regr.tasks.l, resamplings = hci.rsmpls.l)
+            rnd.bmr.l <- benchmark(learners = lrns.l, tasks = rnd.regr.tasks.l, resamplings = rnd.rsmpls.l)
           # Get the predictions from bmr
           predictions.l <- getBMRPredictions(bmr.l)
     #+ ---------------------------------

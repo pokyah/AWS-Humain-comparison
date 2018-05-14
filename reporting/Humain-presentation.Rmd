@@ -59,7 +59,7 @@ error= FALSE,
 message= FALSE)
 
 # Loading the .RData generared by the .init file
-load(file= paste0(wd.chr,"/data-output/ci_ok_model_benchmark.RData"))
+load(file= paste0(wd.chr,"/data-output/big_bmr.RData"))
 #source(paste0(wd.chr,"/init.R"))
 
 #integrate font awesome
@@ -175,7 +175,7 @@ The 2 stations are actually different in their design. While the __RMI__ is equi
 
 If `TRUE` and `sufficient` :  
 
-the <i class="fa fa-minus-circle"></i> differences should be inexistant or at least less pronounced at __night__
+The negative differences should be inexistant or at least less pronounced at __night__
 
 ## IRM - Pameseb BA Plot : Night_only situations
 ```{r}
@@ -188,31 +188,46 @@ night_only$blandAltman$bland_altman.plot
 
 * 0 is not in the 95% CI of the mean difference [`r signif(night_only$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[4,6], 2)` ] <i class="fa fa-hand-point-right"></i> It exists a mean positif __bias__ of `r signif(night_only$blandAltman$bland_altman.stats.df[1,3],2)` (IRM warmer than Pameseb this time)
 
-* The scatter still presents a trend going from positive bias to negative bias <i class="fa fa-hand-point-right"></i>. The ventilation system is not the only explanation to the negative bias. The sensitivity of the sensors themselves (and/or non-linear differences in radiation transfer effects from the shelters towards the sensors) could also expain the observed differences.
+* The scatter still presents a trend going from positive bias to negative bias.
+
+* <i class="fa fa-hand-point-right"></i> The ventilation system is not the only explanation to the proportional bias. The sensitivity of the sensors themselves (and/or non-linear differences in radiation transfer effects from the shelters towards the sensors) could also possibly exlpain the observed differences.
 
 # Solving the disagreement
 
 ## Idea
 
-Prior to the integration of the 2 networks in the spatialization process, a correction must be applied to the temperature data of one of the 2 networs. We consider RMI as the gold-standard and will therefore correct the Pameseb AWS network measurements. The value of the correction will be predicted by a correction model able to predict the observed temperature difference
+* Applying a temperature correction model to Pameseb stations Prior to the integration of the 2 networks in the spatialization process (We consider RMI as the gold-standard)
 
+* The value of the correction to apply to each observation will be predicted by a correction model able to predict the observed temperature difference from any combination of `wind speed`, `irradiance` and `temperature` measured at Pameseb :  
 `corr_pameseb_temp = RMI_temp + predicted_temp_diff`
 
-## Strategy
+## Validation strategies
 
-We can build a correction model that takes into account any combinations of `irradiance`, `windspeed` and `temperature` as predictor(s) to explain the response `temperature differences` (i.e. supervised learning). 
-The model definition is performed using the R [mlr package](https://mlr-org.github.io)
+Regarding what we have learned from the Bland-Altman plots, we can use 2 validation strategies : 
 
-## Model validation
+- one that train our various model on observations corresponding to `High Clearness index` values (`ci > q70(ci)`) and test these on observations corresponding to `[-2h; daily max ; +2h]` : focusing on the effect of the mechanical ventilation
 
-Ideally, a good model 
+- another one that randomly split the dataset on a training set and a test set : non-specific approach of the temperature difference 
 
+## Predictive performance of the models : High CI
 
-## cross-validation to assess predictive performance of the models
+```{r}
+plotBMRSummary(hci.bmr.l)
+```
 
-CV_5_100 : five partitions will be chosen based on the provided coordinates in our task and the partitioning will be repeated 100 times
+## Predictive performance of the models : Random split
 
-## Model results
+```{r}
+plotBMRSummary(rnd.bmr.l)
+```
+
+## Predictive performance of the models : interpretation
+
+In both cases (random split and High CI validations), the model that presents the lowest mean square error is the one using the 3 variables (`wind speed`, `irradiance` and `temperature`) as predictors.
+
+For the random split, the learner that performs the best is the linear regression with a mse of `r getBMRAggrPerformances(rnd.bmr.l)$regr.all.rnd$regr.lm`
+
+For the high CI, the learner that performs the best is the Fast k-Nearest Neighbor with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`
 
 
 ## Correction results
@@ -237,8 +252,17 @@ Maybe should we only compute a model on a subset of the whole dataframe and appl
 * This report is still in major revision phase. __Consider it as a first draft version__.  
 * This document was generated using R software with the [knitr library](https://deanattali.com/2015/03/24/knitrs-best-hidden-gem-spin/) 
 * The interactive plots are rendered from ggplot by [plotly](https://plot.ly).
+* The model definition was performed using the [mlr package](https://mlr-org.github.io)
 * The source code of the analysis and this presentation is availbale on [github](https://github.com/pokyah/AWS-Humain-comparison)
 
+
+## Terms of service 
+To use the [AGROMET API](https://app.pameseb.be/fr/pages/api_call_test/) you need to provide your own user token.  
+The present script is available under the [GNU-GPL V3](https://www.gnu.org/licenses/gpl-3.0.en.html) license and comes with ABSOLUTELY NO WARRANTY.
+
+Copyright : Thomas Goossens - t.goossens@cra.wallonie.be 2018.  
+ 
+*(This document was generated using [R software](https://www.r-project.org/) with the [knitr library](https://deanattali.com/2015/03/24/knitrs-best-hidden-gem-spin/))*.  
 
 <script>
   $(document).ready(function() {
