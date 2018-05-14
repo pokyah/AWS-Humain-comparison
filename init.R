@@ -152,7 +152,17 @@
             ens.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "ens", plot.chr = "timeSerie")
             vvt.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "vvt", plot.chr = "timeSerie")
             tsa.time.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "tsa", plot.chr = "timeSerie")
-          #+ ---------------------------------  
+          #+ ---------------------------------
+          #' #### Build the august zoomed time serie plot for each sensors
+            august.ens.time.plot <- h.render_plot(records.df = dplyr::filter(records.df, mtime %in% as.POSIXct("2016-08-15T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-09-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")), sensor_name.chr = "ens", plot.chr = "timeSerie")
+            august.vvt.time.plot <- h.render_plot(records.df = dplyr::filter(records.df, mtime %in% as.POSIXct("2016-08-15T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-09-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")), sensor_name.chr = "vvt", plot.chr = "timeSerie")
+            august.tsa.time.plot <- h.render_plot(records.df = dplyr::filter(records.df, mtime %in% as.POSIXct("2016-08-15T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-09-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")), sensor_name.chr = "tsa", plot.chr = "timeSerie")
+          #+ ---------------------------------
+          #' #### Build the august zoomed time serie plot for each sensors
+            january.ens.time.plot <- h.render_plot(records.df = dplyr::filter(records.df, mtime %in% as.POSIXct("2016-01-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-01-16T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")), sensor_name.chr = "ens", plot.chr = "timeSerie")
+            january.vvt.time.plot <- h.render_plot(records.df = dplyr::filter(records.df, mtime %in% as.POSIXct("2016-01-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-01-16T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")), sensor_name.chr = "vvt", plot.chr = "timeSerie")
+            january.tsa.time.plot <- h.render_plot(records.df = dplyr::filter(records.df, mtime %in% as.POSIXct("2016-01-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-01-16T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")), sensor_name.chr = "tsa", plot.chr = "timeSerie")
+                    #+ ---------------------------------  
           #' #### Build the density plot for each sensors
             ens.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "ens", plot.chr = "freq")
             vvt.dens.plot <- h.render_plot(records.df = records.df, sensor_name.chr = "vvt", plot.chr = "freq")
@@ -193,6 +203,16 @@
                   ens.time.plot = ens.time.plot,
                   tsa.time.plot = tsa.time.plot,
                   vvt.time.plot = vvt.time.plot
+                ),
+                august.timeseries.plot = list(
+                  august.ens.time.plot = august.ens.time.plot,
+                  august.tsa.time.plot = august.tsa.time.plot,
+                  august.vvt.time.plot = august.vvt.time.plot
+                ),
+                january.timeseries.plot = list(
+                  january.ens.time.plot = january.ens.time.plot,
+                  january.tsa.time.plot = january.tsa.time.plot,
+                  january.vvt.time.plot = january.vvt.time.plot
                 ),
                 densities.plot = list(
                   ens.dens.plot = ens.dens.plot,
@@ -385,29 +405,28 @@
             )
             
             rnd.rsmpls.l = list(
-              regr.all.rnd = makeResampleDesc("Holdout"),
-              regr.ens.rnd = makeResampleDesc("Holdout"),
-              regr.vvt.rnd = makeResampleDesc("Holdout"),
-              regr.tsa.rnd =  makeResampleDesc("Holdout"),
-              regr.ens_vvt.rnd = makeResampleDesc("Holdout"),
-              regr.ens_tsa.rnd = makeResampleDesc("Holdout"),
-              regr.vvt_tsa.rnd = makeResampleDesc("Holdout")
+              regr.all.rnd = makeResampleDesc("Holdout", predict="both"),
+              regr.ens.rnd = makeResampleDesc("Holdout", predict="both"),
+              regr.vvt.rnd = makeResampleDesc("Holdout", predict="both"),
+              regr.tsa.rnd =  makeResampleDesc("Holdout", predict="both"),
+              regr.ens_vvt.rnd = makeResampleDesc("Holdout", predict="both"),
+              regr.ens_tsa.rnd = makeResampleDesc("Holdout", predict="both"),
+              regr.vvt_tsa.rnd = makeResampleDesc("Holdout", predict="both")
             )
           
           # Conduct the benchmark experiment
             hci.bmr.l <- benchmark(learners = lrns.l, tasks = hci.regr.tasks.l, resamplings = hci.rsmpls.l)
             rnd.bmr.l <- benchmark(learners = lrns.l, tasks = rnd.regr.tasks.l, resamplings = rnd.rsmpls.l)
-          # Get the predictions from bmr
-          predictions.l <- getBMRPredictions(bmr.l)
+
     #+ ---------------------------------
     #' ### Pameseb61 observed temperature corrections using the tsa_diff prediction models.
     #' #+ tsa_diff_correction, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
       #+ ---------------------------------
       #' #### For each learner, binding the output of the prediction models with the original data
         # function declaration
-          bind_orig_corr <- function(learner.chr, predictions.l){
+          bind_orig_corr <- function(learner.chr, predictions.l, tasks.l){
             # Extracting the prediction of the test set (there is an option to also keep the pred made on the training set)
-            task_ids.l <- lapply(regr.tasks.l,function(x) getTaskDesc(x)$id)  
+            task_ids.l <- lapply(tasks.l,function(x) getTaskDesc(x)$id)  
             names(task_ids.l) <- sapply(task_ids.l, function(x) x)
             tasks_preds.l <- lapply((task_ids.l),
                    function(x) 
@@ -448,7 +467,8 @@
             e <- unique(e)
           }
           # applying the binding orig+corr for each learner and storing in a list
-          learners.corrections.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), bind_orig_corr, predictions.l)
+          rnd.corrections.l <- lapply(list(regr.lm = "regr.lm"), bind_orig_corr, predictions.l = getBMRPredictions(rnd.bmr.l), tasks.l = rnd.regr.tasks.l)
+          hci.corrections.l <- lapply(list(regr.lm = "regr.lm"), bind_orig_corr, predictions.l = getBMRPredictions(hci.bmr.l), tasks.l = hci.regr.tasks.l)
       #+ ---------------------------------
       #' ### Vizualizing the multiple corrected Pameseb61 tsa
         #+ ---------------------------------  
@@ -467,9 +487,11 @@
             }
             corrections_names.l <- as.list(colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],".")))))
             names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],"."))))
-            corrections.ba.corr.plots.l <- lapply(corrections_names.l, make_ba_corr_plots_per_correction, learners.corrections.l[[learner.chr]]) 
+            corrections.ts.corr.plots.l <- lapply(corrections_names.l, make_ts_corr_plots_per_correction, learners.corrections.l[[learner.chr]]) 
           }
-          learners.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), make_ts_corr_plots_per_learner, learners.corrections.l)
+          
+          rnd.ts.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ts_corr_plots_per_learner, rnd.corrections.l)
+          hci.ts.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ts_corr_plots_per_learner, hci.corrections.l)
           
           corr.tsa.time.plot <- h.render_plot(
             records.df = mod.corr.df %>% 
@@ -494,12 +516,25 @@
                 ),
                 output="plot"
               )
+              bland_altman.stat <- h.compute_ba(
+                records.wide.df= h.make_wide(
+                  dplyr::select(
+                    corrections.df,
+                    one_of(c("mtime","sid", correction.chr))),
+                  sensor_name.chr = correction.chr
+                ),
+                output="table"
+              )
+              return(list(ba_plot = bland_altman.plot, ba_stats = bland_altman.stat))
             }
             corrections_names.l <- as.list(colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],".")))))
             names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],"."))))
             corrections.ba.corr.plots.l <- lapply(corrections_names.l, make_ba_corr_plots_per_correction, learners.corrections.l[[learner.chr]]) 
           }
-          learners.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm", regr.elmNN = "regr.elmNN"), make_ba_corr_plots_per_learner, learners.corrections.l)
+          
+      
+          rnd.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ba_corr_plots_per_learner, rnd.corrections.l)
+          hci.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ba_corr_plots_per_learner, hci.corrections.l)
  
 #+ ---------------------------------
 #' ## Terms of service 

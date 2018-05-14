@@ -4,6 +4,17 @@ author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 always_allow_html: yes
 output:
+  odt_document:
+    fig_height: 5
+    fig_width: 7
+  md_document:
+    toc: no
+    toc_depth: 6
+    variant: markdown_github
+  word_document:
+    toc: no
+    toc_depth: '6'
+  pdf_document: default
   revealjs::revealjs_presentation:
     center: yes
     highlight: pygments
@@ -14,17 +25,6 @@ output:
     transition: slide
     reveal_options:
       previewLinks: false
-  md_document:
-    toc: no
-    toc_depth: 6
-    variant: markdown_github
-  word_document:
-    toc: no
-    toc_depth: '6'
-  pdf_document: default
-  odt_document:
-    fig_height: 5
-    fig_width: 7
   html_document:
     theme: default
     toc: yes
@@ -50,6 +50,7 @@ wd.chr <- here::here()
 require(plotly)
 require(knitr)
 require(broom)
+require(mlr)
 
 # Defining the .Rmd settings - https://github.com/yihui/knitr/issues/277
 knitr::opts_chunk$set(
@@ -65,18 +66,6 @@ load(file= paste0(wd.chr,"/data-output/big_bmr.RData"))
 #integrate font awesome
 htmltools::tagList(rmarkdown::html_dependency_font_awesome())
 ```
-
-# todolist
-
-* normalize
-* Tester la différence sur les daily max
-* Clearness index ==> filtre dataset original pour les valeurs >0.6 ou seuil au-delà duquel,n 30% d'observations (correspondent à périodes d'effets radiatifs)
-* apprendre le modèle sur base de cce jue filtré
-* Valider le modèles sur les daily max
-* Comparaison daily max corr et originaux
-* Recréer une série temporelle continue en réintégrant les data nondaily maxima
-* comparer les paires de stations proches pour l'ensoleillement pour voir si le modèle est transposable
-* Aussi faire une validation sur les data nov a avril 2018
 
 # Context & objectives
 
@@ -104,9 +93,19 @@ htmltools::tagList(rmarkdown::html_dependency_font_awesome())
 kable(no_extra_filter$statistics.l$tsa_stats.df, caption= "tsa summary stats", digits=2)
 ```
 
-## Time series
+## Time series - full
 ```{r fig.cap = "Time series"}
 no_extra_filter$plots$timeseries.plot$tsa.time.plot
+```
+
+## Time series - january 2016
+```{r fig.cap = "Time series - january 2016 zoom"}
+no_extra_filter$plots$january.timeseries.plot$january.tsa.time.plot
+```
+
+## Time series - august 2016
+```{r fig.cap = "Time series - august 2016 zoom"}
+no_extra_filter$plots$august.timeseries.plot$august.tsa.time.plot
 ```
 
 ## Density
@@ -131,8 +130,6 @@ Datasets seem in accordance ...
 
 ## Temperature difference investigation
 
-<i class="fa fa-question-circle"></i>
-
 What can be infered by studying the temperature differences rather than their correlation ?
 
 # Investigating the temperature difference
@@ -143,7 +140,7 @@ We can use a [Bland Altman analysis](https://pokyah.github.io/howto/assessing-th
 
 It consists to take observations pair by pair and to plot their `means` vs. their `differences`.
 
-In our case we choose to plot `IRM <i class="fa fa-minus-circle"></i> Pameseb`.
+In our case we choose to plot `IRM - Pameseb`.
 
 ## IRM - Pameseb BA Plot
 
@@ -155,15 +152,16 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 * For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
-* 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] <i class="fa fa-hand-point-right"></i> It exists a mean negative __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)`
+* 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean negative __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)`
 
-* The scatter presents a trend going from positive bias to negative bias <i class="fa fa-hand-point-right"></i> proportional bias. The methods do not agree equally through the range of measurements. The highest absolute differences are observed the highest mean temperatures.
+* The scatter presents a trend going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements. The highest absolute differences are observed the highest mean temperatures.
 
 * below 10 °C, IRM tends to be warmer (T°diff fluctuates above 0°C) and above 10°C, Pameseb tends to be warmer (T°diff flucutuates below 0°C)
 
 ## A potential explanation : station design
 
-The 2 stations are actually different in their design. While the __RMI__ is equipped with a Stevenson radiation screeen mechanically ventiled, __Pameseb__ is equipped with a custom screen without mechanical ventilation
+* The 2 stations are actually different in their design. While the __RMI__ is equipped with a Stevenson radiation screeen mechanically ventiled, __Pameseb__ is equipped with a custom screen without mechanical ventilation. 
+* Also, the 2 sensors are not from the same constructor : 
 
 ![](./assets/shelters.png){ width=50% }
 
@@ -171,7 +169,7 @@ The 2 stations are actually different in their design. While the __RMI__ is equi
 
 ## Supposition
 
-> the lack of ventilation system at Pameseb does not allow to sufficiently compensate the effect of direct solar radiation, leading to an overheating of the Pameseb shelter compared to RMI during situations of high irradiance and low wind.
+The lack of ventilation system at Pameseb does not allow to sufficiently compensate the effect of direct solar radiation, leading to an overheating of the Pameseb shelter compared to RMI during situations of high irradiance and low wind.
 
 If `TRUE` and `sufficient` :  
 
@@ -186,17 +184,17 @@ night_only$blandAltman$bland_altman.plot
 
 * For most individuals, measurements made by 2 stations are more likely to be far apart in a narrower range comprised between [`r signif(night_only$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.  
 
-* 0 is not in the 95% CI of the mean difference [`r signif(night_only$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[4,6], 2)` ] <i class="fa fa-hand-point-right"></i> It exists a mean positif __bias__ of `r signif(night_only$blandAltman$bland_altman.stats.df[1,3],2)` (IRM warmer than Pameseb this time)
+* 0 is not in the 95% CI of the mean difference [`r signif(night_only$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean positive __bias__ of `r signif(night_only$blandAltman$bland_altman.stats.df[1,3],2)` (IRM warmer than Pameseb this time)
 
 * The scatter still presents a trend going from positive bias to negative bias.
 
-* <i class="fa fa-hand-point-right"></i> The ventilation system is not the only explanation to the proportional bias. The sensitivity of the sensors themselves (and/or non-linear differences in radiation transfer effects from the shelters towards the sensors) could also possibly exlpain the observed differences.
+* ==> The ventilation system is not the only explanation to the proportional bias. The sensitivity of the sensors themselves (and/or non-linear differences in radiation transfer effects from the shelters towards the sensors) could also possibly explain the observed differences.
 
 # Solving the disagreement
 
 ## Idea
 
-* Applying a temperature correction model to Pameseb stations Prior to the integration of the 2 networks in the spatialization process (We consider RMI as the gold-standard)
+* Applying a temperature correction model to Pameseb stations prior to the integration of the 2 networks in the spatialization process (We consider RMI as the gold-standard)
 
 * The value of the correction to apply to each observation will be predicted by a correction model able to predict the observed temperature difference from any combination of `wind speed`, `irradiance` and `temperature` measured at Pameseb :  
 `corr_pameseb_temp = RMI_temp + predicted_temp_diff`
@@ -205,9 +203,9 @@ night_only$blandAltman$bland_altman.plot
 
 Regarding what we have learned from the Bland-Altman plots, we can use 2 validation strategies : 
 
-- one that train our various model on observations corresponding to `High Clearness index` values (`ci > q70(ci)`) and test these on observations corresponding to `[-2h; daily max ; +2h]` : focusing on the effect of the mechanical ventilation
+- one that train our various model on observations corresponding to High [clearness index](https://www.homerenergy.com/products/pro/docs/3.11/clearness_index.html) values (`ci > q70(ci)`) and test these on observations corresponding to `[-2h; daily max ; +2h]` : focusing on the effect of the mechanical ventilation
 
-- another one that randomly split the dataset on a training set and a test set : non-specific approach of the temperature difference 
+- another one that randomly split the dataset on a training set and a test set : non-specific approach of the temperature difference that take into account both the low and high mean temperatures differences.
 
 ## Predictive performance of the models : High CI
 
@@ -229,17 +227,31 @@ For the random split, the learner that performs the best is the linear regressio
 
 For the high CI, the learner that performs the best is the Fast k-Nearest Neighbor with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`
 
+==> For now, we arbitrary choose linear regression with the 3 predictors as the best correction algorithm.
 
-## Correction results
-It seems that the model cannot efficiently make the correction for the high temperature.
-Maybe should we only compute a model on a subset of the whole dataframe and apply it only on these cases
+## Corrected BlandAltman Plot
 
+```{r Plot of mean tsa vs. tsaPamesebCorr - tsaIRM}
+rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_plot
+```
+
+## Corrected BlandAltman Plot Interpretation
+
+* For most individuals, measurements made by 2 stations are more likely to be far apart in a narrower range comprised between [`r signif(rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_stats[1,2], 2)` ; `r signif(rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_stats[1,4], 2)`] °C.  
+
+* 0 is in the 95% CI of the mean difference [`r signif(rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_stats[2,6], 2)` ; `r signif(rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_stats[4,6], 2)` ] ==> no more bias !
+
+* No more negative trend is observable 
+
+* ==> The model has successfully corrected the temperature differences.
 
 # Conclusions, perspectives and colofon
 
 ## Conclusions
 
-* prior to spatialization, a correction model needs to be applied before integrating the 2 networks
+* Using Bland-Altman to assess the difference between two datasets, we were able to demonstrate that 2 stations does not record the temperature in similar ways
+* Using the power of mlr, we are able to quickly decide which correction model to apply to the Pameseb
+* improvment 1 : develop 2 correction models ==> one below 10°C and another one above 10°C
 
 ## Perspectives
 * Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html).
