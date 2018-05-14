@@ -157,7 +157,7 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 * 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] <i class="fa fa-hand-point-right"></i> It exists a mean negative __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)`
 
-* The scatter presents a trend going from positive bias to negative bias <i class="fa fa-hand-point-right"></i> proportional bias. The methods do not agree equally through the range of measurements.
+* The scatter presents a trend going from positive bias to negative bias <i class="fa fa-hand-point-right"></i> proportional bias. The methods do not agree equally through the range of measurements. The highest absolute differences are observed the highest mean temperatures.
 
 * below 10 °C, IRM tends to be warmer (T°diff fluctuates above 0°C) and above 10°C, Pameseb tends to be warmer (T°diff flucutuates below 0°C)
 
@@ -188,23 +188,24 @@ night_only$blandAltman$bland_altman.plot
 
 * 0 is not in the 95% CI of the mean difference [`r signif(night_only$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[4,6], 2)` ] <i class="fa fa-hand-point-right"></i> It exists a mean positif __bias__ of `r signif(night_only$blandAltman$bland_altman.stats.df[1,3],2)` (IRM warmer than Pameseb this time)
 
-* The scatter still presents a trend going from positive bias to negative bias <i class="fa fa-hand-point-right"></i>. The ventilation system is not the only explanation to the negative bias. It could actually be the sensitivity of the sensors themselves (and/or non-linear differences in radiation transfer effects from the shelters towards the sensors).
+* The scatter still presents a trend going from positive bias to negative bias <i class="fa fa-hand-point-right"></i>. The ventilation system is not the only explanation to the negative bias. The sensitivity of the sensors themselves (and/or non-linear differences in radiation transfer effects from the shelters towards the sensors) could also expain the observed differences.
 
 # Solving the disagreement
 
 ## Idea
 
-Prior to the integration of the 2 networks in the spatialization process, a correction must be applied to the temperature data of one of the 2 networs. We consider RMI as the gold-standard and will therefore correct the Pameseb AWS network measurements. The value of the correction will be predicted by a correction model able to predict the observed temperature difference :
+Prior to the integration of the 2 networks in the spatialization process, a correction must be applied to the temperature data of one of the 2 networs. We consider RMI as the gold-standard and will therefore correct the Pameseb AWS network measurements. The value of the correction will be predicted by a correction model able to predict the observed temperature difference
 
 `corr_pameseb_temp = RMI_temp + predicted_temp_diff`
 
 ## Strategy
 
 We can build a correction model that takes into account any combinations of `irradiance`, `windspeed` and `temperature` as predictor(s) to explain the response `temperature differences` (i.e. supervised learning). 
-The model definition is performed using the R [mlr package](https://mlr-org.github.io) :
+The model definition is performed using the R [mlr package](https://mlr-org.github.io)
 
-> In mlr a benchmark experiment can be conducted by calling function benchmark on a list of Learners and a list of Tasks. benchmark basically executes resample for each combination of Learner and Task
+## Model validation
 
+Ideally, a good model 
 
 
 ## cross-validation to assess predictive performance of the models

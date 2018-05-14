@@ -288,78 +288,32 @@
             lrns.l = list(makeLearner("regr.lm"),
                            makeLearner("regr.elmNN")
                           )
+          
+          # defines the tasks (all the same but mlr needs a task by resampling strategy)
+            regr.tasks.l = list(
+              regr.task.all.repcv = mlr::makeRegrTask(
+                id = "regr.repcv_5_100",
+                data = mod.feat.pameseb61.df,
+                target = "diffs"
+              ),
+              regr.task.all.hc = mlr::makeRegrTask(
+                id = "regr.high_ci",
+                data = mod.feat.pameseb61.df,
+                target = "diffs"
+              )
+            )
+            
           # Define the validation strategies that we want to use
             rsmpls.l = list(
-              holdout.rdesc = makeResampleDesc("Holdout", predict = "test"),
-              repcv_5_100.rdesc = makeResampleDesc("RepCV", folds = 5, iters = 100, predict = "test"),
-              high_rad.holdout.rdesc = makeFixedHoldoutInstance(
-               train.inds = high_rad_inds.df[[1]],
-               test.inds = daily_max_mp2_inds.df[[1]],
-               size=nrow(mod.feat.pameseb61.df),
-               predict = "test"
-              ),
+              repcv_5_100.rdesc = makeResampleDesc("RepCV", folds = 5, reps = 100, predict = "both"),
               high_ci.holdout.rdesc = makeFixedHoldoutInstance(
                train.inds = high_ci_inds.df[[1]],
                test.inds = daily_max_mp2_inds.df[[1]],
                size=nrow(mod.feat.pameseb61.df),
-               predict = "test"
-              ),
-              below10.holdout.rdesc = makeResampleDesc("Holdout"),
-              below10.repcv_5_100.rdesc = makeResampleDesc("CV", iters = 200),
-              above10.holdout.rdesc = makeResampleDesc("Holdout"),
-              above10.repcv_5_100.rdesc = makeResampleDesc("CV", iters = 200)
-            )
-          # defines the tasks (all the same but mlr needs a task by resampling strategy)
-            regr.tasks.l = list(
-              regr.task1 = mlr::makeRegrTask(
-                id = "regr.holdout",
-                data = mod.feat.pameseb61.df,
-                target = "diffs"
-              ),
-              regr.task2 = mlr::makeRegrTask(
-                id = "regr.cv200",
-                data = mod.feat.pameseb61.df,
-                target = "diffs"
-              ),
-              regr.task3 = mlr::makeRegrTask(
-                id = "regr.high_rad",
-                data = mod.feat.pameseb61.df,
-                target = "diffs"
-              ),
-              regr.task4 = mlr::makeRegrTask(
-                id = "regr.high_ci",
-                data = mod.feat.pameseb61.df,
-                target = "diffs"
-              ),
-              regr.task5 = mlr::makeRegrTask(
-                id = "regr.cv200.below10",
-                data = dplyr::filter(
-                  mod.feat.pameseb61.df, tsa < 10
-                  ),
-                target = "diffs"
-              ),
-              regr.task6 = mlr::makeRegrTask(
-                id = "regr.holdout.below10",
-                data = dplyr::filter(
-                  mod.feat.pameseb61.df, tsa < 10
-                ),
-                target = "diffs"
-              ),
-              regr.task7 = mlr::makeRegrTask(
-                id = "regr.cv200.above10",
-                data = dplyr::filter(
-                  mod.feat.pameseb61.df, tsa >= 10
-                ),
-                target = "diffs"
-              ),
-              regr.task8 = mlr::makeRegrTask(
-                id = "regr.holdout.above10",
-                data = dplyr::filter(
-                  mod.feat.pameseb61.df, tsa >= 10
-                ),
-                target = "diffs"
+               predict = "train"
               )
             )
+          
           # Conduct the benchmark experiment
             bmr.l <- benchmark(learners = lrns.l, tasks = regr.tasks.l, resamplings = rsmpls.l)
           # Get the predictions from bmr
