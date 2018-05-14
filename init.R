@@ -170,7 +170,7 @@
         #+ ---------------------------------
         #' ### Appending Bland Altman data to records.df
           # Joining using dplyr
-            records.df <- dplyr::left_join(records.df, select(bland_altman.data.df, c(1,2,3)), by="mtime")
+            records.df <- dplyr::left_join(records.df, dplyr::select(bland_altman.data.df, c(1,2,3)), by="mtime")
         #+ ---------------------------------
         #' ### Returning the outputs
         #+ ret-outputs, echo=TRUE, warning=FALSE, message=FALSE, error=FALSE, results='asis'
@@ -217,8 +217,11 @@
       no_extra_filter$records.df <- rownames_to_column(df = no_extra_filter$records.df, var = "key" )
       no_extra_filter$records.df <- no_extra_filter$records.df %>%
         mutate_at("key", as.numeric)
-      # up10deg <- compare_data(records.df = records.df, filter.chr="up10deg")
-      # low_rad_high_wind <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind")
+
+      night_only <- compare_data(records.df = records.df, filter.chr="night_only")
+      night_only$records.df <- rownames_to_column(df = night_only$records.df, var = "key" )
+      night_only$records.df <- night_only$records.df %>%
+        mutate_at("key", as.numeric)
       # low_rad_high_wind_up10 <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind_up10")
       # 
       # high_rad_high_wind <- compare_data(records.df = records.df, filter.chr="high_rad_high_wind")
@@ -287,8 +290,8 @@
                           )
           # Define the validation strategies that we want to use
             rsmpls.l = list(
-              holdout.rdesc = makeResampleDesc("Holdout", predict = "both"),
-              cv200.rdesc = makeResampleDesc("CV", iters = 200, predict = "both"),
+              holdout.rdesc = makeResampleDesc("Holdout", predict = "test"),
+              repcv_5_100.rdesc = makeResampleDesc("RepCV", folds = 5, iters = 100, predict = "test"),
               high_rad.holdout.rdesc = makeFixedHoldoutInstance(
                train.inds = high_rad_inds.df[[1]],
                test.inds = daily_max_mp2_inds.df[[1]],
@@ -302,9 +305,9 @@
                predict = "test"
               ),
               below10.holdout.rdesc = makeResampleDesc("Holdout"),
-              below10.cv200.rdesc = makeResampleDesc("CV", iters = 200),
+              below10.repcv_5_100.rdesc = makeResampleDesc("CV", iters = 200),
               above10.holdout.rdesc = makeResampleDesc("Holdout"),
-              above10.cv200.rdesc = makeResampleDesc("CV", iters = 200)
+              above10.repcv_5_100.rdesc = makeResampleDesc("CV", iters = 200)
             )
           # defines the tasks (all the same but mlr needs a task by resampling strategy)
             regr.tasks.l = list(
