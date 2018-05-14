@@ -310,7 +310,7 @@
                train.inds = high_ci_inds.df[[1]],
                test.inds = daily_max_mp2_inds.df[[1]],
                size=nrow(mod.feat.pameseb61.df),
-               predict = "train"
+               predict = "test"
               )
             )
           
