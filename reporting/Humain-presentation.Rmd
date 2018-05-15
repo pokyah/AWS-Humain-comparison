@@ -19,6 +19,9 @@ output:
     toc: no
     toc_depth: '6'
   pdf_document: default
+  odt_document:
+    fig_height: 5
+    fig_width: 7
   revealjs::revealjs_presentation:
     center: yes
     highlight: pygments
@@ -29,9 +32,6 @@ output:
     transition: slide
     reveal_options:
       previewLinks: false
-  odt_document:
-    fig_height: 5
-    fig_width: 7
 ---
 
 ```{r setup, include=FALSE}
@@ -159,8 +159,7 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 ## A potential explanation : station design
 
-* The 2 stations are actually different in their design. While the __RMI__ is equipped with a __Stevenson radiation screeen mechanically ventiled__, __Pameseb__ is equipped with a __custom screen without mechanical ventilation__. 
-* Also, the 2 sensors are not from the same constructor : 
+The 2 stations are actually different in their design. While the __RMI__ is equipped with a __Stevenson radiation screeen mechanically ventiled__, __Pameseb__ is equipped with a __custom screen without mechanical ventilation__. 
 
 ![](./assets/shelters.png){ width=50% }
 
