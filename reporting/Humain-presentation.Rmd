@@ -126,7 +126,9 @@ Datasets seem in accordance ...
 
 * but to which extent ? 
 * How can we quantify this degree of similarity ?  
-* Even if a certain degree of similarity : Pameseb seems warmer
+* Even if a certain degree of similarity : Pameseb is globally warmer
+* When temperature > 10 °C : Pameseb warmer than RMI and the opposite below 10°C
+* The disparities are generally found around the hours corresponding to daily max temperature.
 
 ## Temperature difference investigation
 
@@ -142,13 +144,13 @@ It consists to take observations pair by pair and to plot their `means` vs. thei
 
 In our case we choose to plot `IRM - Pameseb`.
 
-## IRM - Pameseb BA Plot
+## Bland-Altman Plot
 
 ```{r Plot of mean tsa vs. tsaPameseb - tsaIRM}
 no_extra_filter$blandAltman$bland_altman.plot
 ```
 
-## BA plot interpretation
+## BA interpretation
 
 * For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
@@ -175,12 +177,12 @@ If `TRUE` and `sufficient` :
 
 The negative differences should be inexistant or at least less pronounced at __night__
 
-## IRM - Pameseb BA Plot : Night_only situations
+## Bland-Altman Plot : Night_only situations
 ```{r}
 night_only$blandAltman$bland_altman.plot
 ```
 
-## BA plot interpretation : Night_only situations
+## BA Night_only situations - interpretation 
 
 * For most individuals, measurements made by 2 stations are more likely to be far apart in a narrower range comprised between [`r signif(night_only$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.  
 
@@ -188,7 +190,7 @@ night_only$blandAltman$bland_altman.plot
 
 * The scatter still presents a trend going from positive bias to negative bias.
 
-* ==> The ventilation system is not the only explanation to the proportional bias. The sensitivity of the sensors themselves (and/or non-linear differences in radiation transfer effects from the shelters towards the sensors) could also possibly explain the observed differences.
+* ==> The ventilation system is not the only explanation to the proportional bias. The sensitivity of the sensors themselves and/or non-linear differences in radiation transfer effects from the shelters towards the sensors could also possibly explain the observed differences.
 
 # Solving the disagreement
 
@@ -196,46 +198,47 @@ night_only$blandAltman$bland_altman.plot
 
 * Applying a temperature correction model to Pameseb stations prior to the integration of the 2 networks in the spatialization process (We consider RMI as the gold-standard)
 
-* The value of the correction to apply to each observation will be predicted by a correction model able to predict the observed temperature difference from any combination of `wind speed`, `irradiance` and `temperature` measured at Pameseb :  
-`corr_pameseb_temp = RMI_temp + predicted_temp_diff`
+* The value of the correction to apply to each observation will be predicted by a correction model able to predict the observed temperature difference by learning from any combination of `wind speed`, `irradiance` and `temperature` measured at Pameseb  
 
-## Validation strategies
+* `corr_pameseb_temp = RMI_temp + predicted_temp_diff`
 
-Regarding what we have learned from the Bland-Altman plots, we can use 2 validation strategies : 
+## Correction strategies
 
-- one that train our various model on observations corresponding to High [clearness index](https://www.homerenergy.com/products/pro/docs/3.11/clearness_index.html) values (`ci > q70(ci)`) and test these on observations corresponding to `[-2h; daily max ; +2h]` : focusing on the effect of the mechanical ventilation
+Regarding what we have learned from the Bland-Altman plots, we can use 2 correction strategies : 
 
-- another one that randomly split the dataset on a training set and a test set : non-specific approach of the temperature difference that take into account both the low and high mean temperatures differences.
+* 1st focusing on the __daily temperature peaks__ differences : only corrects observations corresponding to `[-2h; daily max ; +2h]` ==>  __train__ set = observations corresponding to High [clearness index](https://www.homerenergy.com/products/pro/docs/3.11/clearness_index.html) values (`ci > q70(ci)`) and __test__ set = observations corresponding to `[-2h; daily max ; +2h]`
 
-## Predictive performance of the models : High CI
+* 2nd __non-specific__ approach of the temperature differences. ==> __train__ and __test__ sets = random split ("holdout") of the whole dataset.
+
+## Predictive performance of the models - daily temperature peaks
 
 ```{r}
 plotBMRSummary(hci.bmr.l)
 ```
 
-## Predictive performance of the models : Random split
+## Predictive performance of the models - non-specific
 
 ```{r}
 plotBMRSummary(rnd.bmr.l)
 ```
 
-## Predictive performance of the models : interpretation
+## Predictive performance of the models - interpretation
 
-In both cases (random split and High CI validations), the model that presents the lowest mean square error is the one using the 3 variables (`wind speed`, `irradiance` and `temperature`) as predictors.
+In both approaches, the model that presents the lowest mean square error is the one using the 3 variables (`wind speed`, `irradiance` and `temperature`) as predictors.
 
-For the random split, the learner that performs the best is the linear regression with a mse of `r getBMRAggrPerformances(rnd.bmr.l)$regr.all.rnd$regr.lm`
+For the __non-specific__ approach, the learner that performs the best is the linear regression with a mse of `r getBMRAggrPerformances(rnd.bmr.l)$regr.all.rnd$regr.lm`
 
-For the high CI, the learner that performs the best is the Fast k-Nearest Neighbor with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`
+For the __daily temperature peaks__ approach, the learner that performs the best is the Fast k-Nearest Neighbor with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`
 
-==> For now, we arbitrary choose linear regression with the 3 predictors as the best correction algorithm.
+==> What is the best correction strategy ? Let's compare the predictions outputs
 
-## Corrected BlandAltman Plot
+## Corrected Bland-Altman Plot - non-specific
 
-```{r Plot of mean tsa vs. tsaPamesebCorr - tsaIRM}
+```{r fig.cap = "Bland-Altman plot - Pameseb corrected by non-specific approach"}
 rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_plot
 ```
 
-## Corrected BlandAltman Plot Interpretation
+## Corrected BA daily  - Interpretation
 
 * For most individuals, measurements made by 2 stations are more likely to be far apart in a narrower range comprised between [`r signif(rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_stats[1,2], 2)` ; `r signif(rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_stats[1,4], 2)`] °C.  
 
@@ -243,22 +246,60 @@ rnd.ba.corr.plots.l$regr.lm$regr.all.rnd$ba_plot
 
 * No more negative trend is observable 
 
-* ==> The model has successfully corrected the temperature differences.
+## Corrected Bland-Altman Plot - daily temperature peaks
+
+```{r fig.cap = "Bland-Altman plot - Pameseb corrected by daily temperature peaks approach"}
+hci.ba.corr.plots.l$regr.fnn$regr.all.hci$ba_plot
+```
+
+## Corrected BA non-specific - Interpretation
+
+* For most individuals, measurements made by 2 stations are more likely to be far apart in a narrower range comprised between [`r signif(hci.ba.corr.plots.l$regr.fnn$regr.all.hci$ba_stats[1,2], 2)` ; `r signif(hci.ba.corr.plots.l$regr.fnn$regr.all.hci$ba_stats[1,4], 2)`] °C.  
+
+* 0 is in the 95% CI of the mean difference [`r signif(hci.ba.corr.plots.l$regr.fnn$regr.all.hci$ba_stats[2,6], 2)` ; `r signif(hci.ba.corr.plots.l$regr.fnn$regr.all.hci$ba_stats[4,6], 2)` ] ==> no more bias !
+
+* But the negative trend is still visible... 
+
+## Corrected Time-series Plot - august - daily temperature peaks
+
+```{r fig.cap = "Time series - august 2016 zoom Pameseb corrected by daily temperature peaks approach"}
+hci.ts.corr.plots.l$regr.fnn$regr.all.hci$august.ts.plot
+```
+
+## Corrected Time-series Plot - august - non-specific
+
+```{r fig.cap = "Time series - august 2016 zoom Pameseb corrected by non-specific approach"}
+rnd.ts.corr.plots.l$regr.lm$regr.all.rnd$august.ts.plot
+```
+
+## Corrected Time-series Plot - january - daily temperature peaks
+
+```{r fig.cap = "Time series - january 2016 zoom Pameseb corrected by daily temperature peaks approach"}
+hci.ts.corr.plots.l$regr.fnn$regr.all.hci$january.ts.plot
+```
+
+## Corrected Time-series Plot - january - non-specific
+
+```{r fig.cap = "Time series - january 2016 zoom Pameseb corrected by non-specific approach"}
+rnd.ts.corr.plots.l$regr.lm$regr.all.rnd$january.ts.plot
+```
 
 # Conclusions, perspectives and colofon
 
 ## Conclusions
 
 * Using Bland-Altman to assess the difference between two datasets, we were able to demonstrate that 2 stations does not record the temperature in similar ways
-* Using the power of mlr, we are able to quickly decide which correction model to apply to the Pameseb
-* improvment 1 : develop 2 correction models ==> one below 10°C and another one above 10°C
+* Using the power of mlr, we are able to quickly test various correction models and compare their predictions
+* Using, temperature, wind speed and irradiance as explanatory variables, we are able to predict the temperature difference with a mse < 0.10 and to suppress the observed proportional bias
+* improvement 1 : develop 2 correction models ==> one below 10°C and another one above 10°C ?
+* Further work : can this correction process be applied asis to all our stations ? 
 
 ## Perspectives
 * Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html).
-* title idea : 
-  > Quantitative intercomparison of 2 years hourly records of temperature and relative
+* title idea : Quantitative intercomparison of 2 years hourly records of temperature and relative
     humidity measured by 2 different types of professional-grade automatic weather stations
     at Humain, Belgium
+    
 
 ## Colofon
 * This report is still in major revision phase. __Consider it as a first draft version__.  

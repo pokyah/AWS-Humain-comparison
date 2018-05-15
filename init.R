@@ -468,22 +468,49 @@
           }
           # applying the binding orig+corr for each learner and storing in a list
           rnd.corrections.l <- lapply(list(regr.lm = "regr.lm"), bind_orig_corr, predictions.l = getBMRPredictions(rnd.bmr.l), tasks.l = rnd.regr.tasks.l)
-          hci.corrections.l <- lapply(list(regr.lm = "regr.lm"), bind_orig_corr, predictions.l = getBMRPredictions(hci.bmr.l), tasks.l = hci.regr.tasks.l)
+          hci.corrections.l <- lapply(list(regr.fnn = "regr.fnn"), bind_orig_corr, predictions.l = getBMRPredictions(hci.bmr.l), tasks.l = hci.regr.tasks.l)
       #+ ---------------------------------
       #' ### Vizualizing the multiple corrected Pameseb61 tsa
         #+ ---------------------------------  
         #' #### Build Timeseries plot for each validation strategy
           make_ts_corr_plots_per_learner <- function(learner.chr, learners.corrections.l){
             make_ts_corr_plots_per_correction <- function(correction.chr, corrections.df){
-              time_serie.plot <- h.render_plot(
-                records.wide.df= h.make_wide(
+              full.ts.plot <- h.render_plot(
+                plot.chr="timeSerie",
+                records.df = 
+                  corrections.df %>% 
+                    dplyr::select(
+                      one_of(c("mtime","sid", correction.chr))) %>%
+                      rename_("tsa" = correction.chr),
+                  sensor_name.chr = "tsa"
+                )
+              january.ts.plot <- h.render_plot(
+                plot.chr="timeSerie",
+                records.df = 
+                  corrections.df %>% 
                   dplyr::select(
-                    corrections.df,
-                    one_of(c("mtime","sid", correction.chr))),
-                  sensor_name.chr = correction.chr
-                ),
-                output="plot"
+                    one_of(c("mtime","sid", correction.chr))) %>%
+                  dplyr::filter(
+                    mtime %in% as.POSIXct("2016-01-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-01-16T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")) %>%
+                  rename_("tsa" = correction.chr),
+                sensor_name.chr = "tsa"
               )
+              august.ts.plot <- h.render_plot(
+                plot.chr="timeSerie",
+                records.df = 
+                  corrections.df %>% 
+                  dplyr::select(
+                    one_of(c("mtime","sid", correction.chr))) %>%
+                  dplyr::filter(mtime %in% as.POSIXct("2016-08-15T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2"):as.POSIXct("2016-09-01T00:00:00", format = "%Y-%m-%dT%H:%M:%S", tz = "GMT-2")) %>%
+                  rename_("tsa" = correction.chr),
+                sensor_name.chr = "tsa"
+              )
+              return(list(
+                full.ts.plot = full.ts.plot,
+                august.ts.plot = august.ts.plot,
+                january.ts.plot = january.ts.plot
+              ))
+              
             }
             corrections_names.l <- as.list(colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],".")))))
             names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],"."))))
@@ -491,18 +518,7 @@
           }
           
           rnd.ts.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ts_corr_plots_per_learner, rnd.corrections.l)
-          hci.ts.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ts_corr_plots_per_learner, hci.corrections.l)
-          
-          corr.tsa.time.plot <- h.render_plot(
-            records.df = mod.corr.df %>% 
-              rename(orig.tsa = tsa) %>%
-              gather(tsa_status, tsa, orig.tsa, corr.cv200, corr.high_ci, corr.high_rad, -sid, -mtime ) %>%
-              mutate(tsa_status = paste0(sid, ".", tsa_status)) %>%
-              dplyr::select(one_of(c("mtime", "tsa_status", "tsa"))) %>%
-              rename(sid = tsa_status) %>%
-              dplyr::filter(sid %in% c("61.orig.tsa", "61.corr.cv200", "61.corr.high_rad", "61.corr.high_ci", "1000.orig.tsa" )),
-            sensor_name.chr = "tsa",
-            plot.chr = "timeSerie")
+          hci.ts.corr.plots.l <- lapply(list(regr.fnn = "regr.fnn"), make_ts_corr_plots_per_learner, hci.corrections.l)
         #+ ---------------------------------
         #' #### Build one Bland-Altman per validation srategy
           make_ba_corr_plots_per_learner <- function(learner.chr, learners.corrections.l){
@@ -531,10 +547,9 @@
             names(corrections_names.l) <- colnames(dplyr::select(learners.corrections.l[[learner.chr]], matches(paste0(strsplit(learner.chr, "\\.")[[1]][1],"."))))
             corrections.ba.corr.plots.l <- lapply(corrections_names.l, make_ba_corr_plots_per_correction, learners.corrections.l[[learner.chr]]) 
           }
-          
       
           rnd.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ba_corr_plots_per_learner, rnd.corrections.l)
-          hci.ba.corr.plots.l <- lapply(list(regr.lm = "regr.lm"), make_ba_corr_plots_per_learner, hci.corrections.l)
+          hci.ba.corr.plots.l <- lapply(list(regr.fnn = "regr.fnn"), make_ba_corr_plots_per_learner, hci.corrections.l)
  
 #+ ---------------------------------
 #' ## Terms of service 

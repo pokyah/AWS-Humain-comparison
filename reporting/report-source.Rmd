@@ -3,8 +3,6 @@ title: Quantitative intercomparison of 2 years hourly records of temperature and
 author: 'Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be'
 date: '\`r format(Sys.Date(), " %d-%m-%Y")`\'
 output:
-  pdf_document:
-    toc: no
   html_document:
     theme: default
     toc: yes
@@ -12,6 +10,8 @@ output:
     toc_float:
       collapsed: no
       smooth_scroll: yes
+  pdf_document:
+    toc: no
 always_allow_html: yes
 ---
 
