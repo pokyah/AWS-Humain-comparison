@@ -290,11 +290,11 @@ rnd.ts.corr.plots.l$regr.lm$regr.all.rnd$january.ts.plot
 
 * Using Bland-Altman to assess the difference between two datasets, we were able to demonstrate that 2 stations does not record the temperature in similar ways
 * Using the power of mlr, we are able to quickly test various correction models and compare their predictions
-* Using, temperature, wind speed and irradiance as explanatory variables, we are able to predict the temperature difference with a mse < 0.10 and to suppress the observed proportional bias
-* improvement 1 : develop 2 correction models ==> one below 10°C and another one above 10°C ?
-* Further work : can this correction process be applied asis to all our stations ? 
+* Using Pameseb temperature, wind speed and irradiance as explanatory variables, we are able to predict the temperature difference with a mse < 0.10 and to suppress the observed proportional bias
 
 ## Perspectives
+* improvement 1 : develop 2 correction models ==> one below 10°C and another one above 10°C ?
+* Further work : can this correction process be applied asis to all our stations ? 
 * Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html).
 * title idea : Quantitative intercomparison of 2 years hourly records of temperature and relative
     humidity measured by 2 different types of professional-grade automatic weather stations
