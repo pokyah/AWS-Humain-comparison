@@ -4,9 +4,13 @@ author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 always_allow_html: yes
 output:
-  odt_document:
-    fig_height: 5
-    fig_width: 7
+  html_document:
+    theme: default
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
   md_document:
     toc: no
     toc_depth: 6
@@ -25,13 +29,9 @@ output:
     transition: slide
     reveal_options:
       previewLinks: false
-  html_document:
-    theme: default
-    toc: yes
-    toc_depth: 6
-    toc_float:
-      collapsed: yes
-      smooth_scroll: yes
+  odt_document:
+    fig_height: 5
+    fig_width: 7
 ---
 
 ```{r setup, include=FALSE}
@@ -129,10 +129,7 @@ Datasets seem in accordance ...
 * Even if a certain degree of similarity : Pameseb is globally warmer
 * When temperature > 10 °C : Pameseb warmer than RMI and the opposite below 10°C
 * The disparities are generally found around the hours corresponding to daily max temperature.
-
-## Temperature difference investigation
-
-What can be infered by studying the temperature differences rather than their correlation ?
+* What can be infered by studying the temperature differences rather than their correlation ?
 
 # Investigating the temperature difference
 
@@ -140,7 +137,7 @@ What can be infered by studying the temperature differences rather than their co
 
 We can use a [Bland Altman analysis](https://pokyah.github.io/howto/assessing-the-agreement-between-2-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/) to measure the agreement level between the 2 stations
 
-It consists to take observations pair by pair and to plot their `means` vs. their `differences`.
+It consists to take observations pair by pair and to plot their __means__ vs. their __differences__.
 
 In our case we choose to plot `IRM - Pameseb`.
 
@@ -152,17 +149,17 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 ## BA interpretation
 
-* For most individuals, measurements made by 2 stations are more likely to be far apart between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
+* For most individuals, measurements made by 2 stations are __more likely to be far apart__ between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
 * 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean negative __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)`
 
-* The scatter presents a trend going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements. The highest absolute differences are observed the highest mean temperatures.
+* The scatter presents a __negative trend__ going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements. The highest absolute differences are observed at the highest mean temperatures.
 
-* below 10 °C, IRM tends to be warmer (T°diff fluctuates above 0°C) and above 10°C, Pameseb tends to be warmer (T°diff flucutuates below 0°C)
+* below 10 °C, IRM tends to be warmer (T° difference fluctuates above 0°C) and above 10°C, Pameseb tends to be warmer (T°difference fluctuates below 0°C)
 
 ## A potential explanation : station design
 
-* The 2 stations are actually different in their design. While the __RMI__ is equipped with a Stevenson radiation screeen mechanically ventiled, __Pameseb__ is equipped with a custom screen without mechanical ventilation. 
+* The 2 stations are actually different in their design. While the __RMI__ is equipped with a __Stevenson radiation screeen mechanically ventiled__, __Pameseb__ is equipped with a __custom screen without mechanical ventilation__. 
 * Also, the 2 sensors are not from the same constructor : 
 
 ![](./assets/shelters.png){ width=50% }
@@ -171,18 +168,16 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 ## Supposition
 
-The lack of ventilation system at Pameseb does not allow to sufficiently compensate the effect of direct solar radiation, leading to an overheating of the Pameseb shelter compared to RMI during situations of high irradiance and low wind.
+The lack of ventilation system at Pameseb does not allow to sufficiently compensate the effect of direct solar radiation, potentially leading to an overheating of the Pameseb shelter compared to RMI during situations of high irradiance and low wind.
 
-If `TRUE` and `sufficient` :  
+If true and sufficient ==> the negative differences should be inexistant or at least less pronounced at __night__
 
-The negative differences should be inexistant or at least less pronounced at __night__
-
-## Bland-Altman Plot : Night_only situations
+## Bland-Altman Plot : night only situations
 ```{r}
 night_only$blandAltman$bland_altman.plot
 ```
 
-## BA Night_only situations - interpretation 
+## BA night only situations - interpretation 
 
 * For most individuals, measurements made by 2 stations are more likely to be far apart in a narrower range comprised between [`r signif(night_only$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.  
 
@@ -196,9 +191,9 @@ night_only$blandAltman$bland_altman.plot
 
 ## Idea
 
-* Applying a temperature correction model to Pameseb stations prior to the integration of the 2 networks in the spatialization process (We consider RMI as the gold-standard)
+* Applying a temperature correction model to Pameseb stations prior to the integration of the 2 networks in the spatialization process (we consider RMI as the gold-standard)
 
-* The value of the correction to apply to each observation will be predicted by a correction model able to predict the observed temperature difference by learning from any combination of `wind speed`, `irradiance` and `temperature` measured at Pameseb  
+* The value of the correction to apply to each observation will be predicted by a correction model able to predict the observed temperature difference by learning from any combination of `wind speed`, `irradiance` and `temperature` measured at Pameseb.  
 
 * `corr_pameseb_temp = RMI_temp + predicted_temp_diff`
 
@@ -224,13 +219,13 @@ plotBMRSummary(rnd.bmr.l)
 
 ## Predictive performance of the models - interpretation
 
-In both approaches, the model that presents the lowest mean square error is the one using the 3 variables (`wind speed`, `irradiance` and `temperature`) as predictors.
+* In both approaches, the model that presents the lowest mean square error is the one using the 3 variables (`wind speed`, `irradiance` and `temperature`) as predictors.
 
-For the __non-specific__ approach, the learner that performs the best is the linear regression with a mse of `r getBMRAggrPerformances(rnd.bmr.l)$regr.all.rnd$regr.lm`
+* For the __non-specific__ approach, the learner that performs the best is the linear regression with a mse of `r getBMRAggrPerformances(rnd.bmr.l)$regr.all.rnd$regr.lm`
 
-For the __daily temperature peaks__ approach, the learner that performs the best is the Fast k-Nearest Neighbor with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`
+* For the __daily temperature peaks__ approach, the learner that performs the best is the Fast k-Nearest Neighbor with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`
 
-==> What is the best correction strategy ? Let's compare the predictions outputs
+* ==> What is the best correction approach ? Let's compare the predictions outputs
 
 ## Corrected Bland-Altman Plot - non-specific
 
@@ -294,11 +289,8 @@ rnd.ts.corr.plots.l$regr.lm$regr.all.rnd$january.ts.plot
 
 ## Perspectives
 * improvement 1 : develop 2 correction models ==> one below 10°C and another one above 10°C ?
-* Further work : can this correction process be applied asis to all our stations ? 
-* Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html).
-* title idea : Quantitative intercomparison of 2 years hourly records of temperature and relative
-    humidity measured by 2 different types of professional-grade automatic weather stations
-    at Humain, Belgium
+* Further work : can this correction process be applied asis to all our stations ? For this purpose, we can could compare irradiance patterns from [close stations](https://app.pameseb.be/fr/stations-pameseb/) : (Ernage vs. Sombreffe) + (Buzenol vs. Ruette). if they behave the same as Humain ==> correction model transposable
+* Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html) : *Quantitative intercomparison of 2 years hourly records of temperature and relative humidity measured by 2 different types of professional-grade automatic weather stations at Humain, Belgium*
     
 
 ## Colofon
