@@ -1,6 +1,6 @@
 ---
-title: "Comparison of T° measurements @ Humain"
-author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
+title: "Comparison of Temperature measurements at Humain (Belgium)"
+author: "t.goossens@cra.wallonie.be"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 always_allow_html: yes
 output:
@@ -15,16 +15,6 @@ output:
     toc: no
     toc_depth: '6'
   pdf_document: default
-  revealjs::revealjs_presentation:
-    center: yes
-    highlight: pygments
-    incremental: yes
-    self_contained: true
-    slide_level: 2
-    theme: solarized
-    transition: slide
-    reveal_options:
-      previewLinks: false
   html_document:
     theme: default
     toc: yes
@@ -32,6 +22,19 @@ output:
     toc_float:
       collapsed: yes
       smooth_scroll: yes
+  revealjs::revealjs_presentation:
+    css:
+      - "~/Documents/code/agrometeor/agrometeor-reveal-template/theme/craw.css"
+    center: no
+    highlight: pygments
+    incremental: yes
+    self_contained: true
+    slide_level: 2
+    theme: default
+    transition: slide
+    fig_caption: false
+    reveal_options:
+      previewLinks: false
 ---
 
 ```{r setup, include=FALSE}
@@ -126,7 +129,7 @@ Datasets seem in accordance ...
 * but to which extent ? 
 * How can we quantify this degree of similarity ?  
 * Even if a certain degree of similarity : Pameseb is __globally__ warmer
-* For the daily max ___above 10 °C__ : Pameseb warmer than RMI and the opposite __below 10°C__
+* For the daily max __above 10 °C__ : Pameseb warmer than RMI and the opposite __below 10°C__
 * The disparities are generally found around the hours corresponding to daily max temperature.
 
 # Investigating the temperature difference
