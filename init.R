@@ -96,8 +96,10 @@
     records.df <- h.rad_top_atm(records.df)
   # Add a daily_max column
     records.df <- records.df %>%
+      mutate(date = date(mtime))
+    records.df <- records.df %>%
       group_by(sid) %>% 
-      group_by(date(mtime)) %>%
+      group_by(date) %>%
       mutate(daily_max = max(tsa)) %>%
       ungroup() # function provided by plotly package
 #+ ---------------------------------
@@ -177,6 +179,10 @@
             bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="plot")
             bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="table")
             bland_altman.data.df  <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="data")
+            
+            bland_altman.plot <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="plot")
+            bland_altman.stats.df <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="table")
+            bland_altman.data.df  <- h.compute_ba(records.wide.df= h.make_wide(records.df, "tsa"), output="data")
         #+ ---------------------------------
         #' ### Appending Bland Altman data to records.df
           # Joining using dplyr
@@ -239,9 +245,24 @@
         mutate_at("key", as.numeric)
 
       night_only <- compare_data(records.df = records.df, filter.chr="night_only")
+    # creating a joining key var and making it numeric
       night_only$records.df <- rownames_to_column(df = night_only$records.df, var = "key" )
       night_only$records.df <- night_only$records.df %>%
         mutate_at("key", as.numeric)
+      
+      daily_max_pm2_only <- compare_data(records.df = records.df, filter.chr="daily_max_only")
+    # creating a joining key var and making it numeric
+      daily_max_pm2_only$records.df <- rownames_to_column(df = daily_max_pm2_only$records.df, var = "key" )
+      daily_max_pm2_only$records.df <- daily_max_pm2_only$records.df %>%
+        mutate_at("key", as.numeric)
+      
+      non_daily_max_pm2_only <- compare_data(records.df = records.df, filter.chr="non_daily_max_only")
+    # creating a joining key var and making it numeric
+      daily_max_pm2_only$records.df <- rownames_to_column(df = daily_max_pm2_only$records.df, var = "key" )
+      daily_max_pm2_only$records.df <- daily_max_pm2_only$records.df %>%
+        mutate_at("key", as.numeric)
+      
+      
       # low_rad_high_wind_up10 <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind_up10")
       # 
       # high_rad_high_wind <- compare_data(records.df = records.df, filter.chr="high_rad_high_wind")

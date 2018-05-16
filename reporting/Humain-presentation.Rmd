@@ -4,13 +4,9 @@ author: "Thomas Goossens (CRA-W) - t.goossens@cra.wallonie.be"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 always_allow_html: yes
 output:
-  html_document:
-    theme: default
-    toc: yes
-    toc_depth: 6
-    toc_float:
-      collapsed: yes
-      smooth_scroll: yes
+  odt_document:
+    fig_height: 5
+    fig_width: 7
   md_document:
     toc: no
     toc_depth: 6
@@ -19,9 +15,6 @@ output:
     toc: no
     toc_depth: '6'
   pdf_document: default
-  odt_document:
-    fig_height: 5
-    fig_width: 7
   revealjs::revealjs_presentation:
     center: yes
     highlight: pygments
@@ -32,6 +25,13 @@ output:
     transition: slide
     reveal_options:
       previewLinks: false
+  html_document:
+    theme: default
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -80,7 +80,6 @@ htmltools::tagList(rmarkdown::html_dependency_font_awesome())
 * as demonstrated by [Giavarina](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4470095/), correlation studies is not appropriate to study the differences.
 * The alternative [Bland-Altman analysis](https://www-users.york.ac.uk/~mb55/meas/ba.pdf) proposed by the authors is used in this study.
 
-
 # Data presentation
 
 ## Period of interest
@@ -126,10 +125,9 @@ Datasets seem in accordance ...
 
 * but to which extent ? 
 * How can we quantify this degree of similarity ?  
-* Even if a certain degree of similarity : Pameseb is globally warmer
-* When temperature > 10 °C : Pameseb warmer than RMI and the opposite below 10°C
+* Even if a certain degree of similarity : Pameseb is __globally__ warmer
+* For the daily max ___above 10 °C__ : Pameseb warmer than RMI and the opposite __below 10°C__
 * The disparities are generally found around the hours corresponding to daily max temperature.
-* What can be infered by studying the temperature differences rather than their correlation ?
 
 # Investigating the temperature difference
 
@@ -155,11 +153,11 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 * The scatter presents a __negative trend__ going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements. The highest absolute differences are observed at the highest mean temperatures.
 
-* below 10 °C, IRM tends to be warmer (T° difference fluctuates above 0°C) and above 10°C, Pameseb tends to be warmer (T°difference fluctuates below 0°C)
+* __Below 10 °C__, IRM tends to be warmer (T° difference fluctuates above 0°C) and __above 10°C__, Pameseb tends to be warmer (T°difference fluctuates below 0°C)
 
 ## A potential explanation : station design
 
-The 2 stations are actually different in their design. While the __RMI__ is equipped with a __Stevenson radiation screeen mechanically ventiled__, __Pameseb__ is equipped with a __custom screen without mechanical ventilation__. 
+The 2 stations are equipped with different temperature sensors and are actually different in their design. While the __RMI__ is equipped with a __Stevenson radiation screeen mechanically ventiled__, __Pameseb__ is equipped with a __custom screen without mechanical ventilation__. 
 
 ![](./assets/shelters.png){ width=50% }
 
@@ -169,7 +167,7 @@ The 2 stations are actually different in their design. While the __RMI__ is equi
 
 The lack of ventilation system at Pameseb does not allow to sufficiently compensate the effect of direct solar radiation, potentially leading to an overheating of the Pameseb shelter compared to RMI during situations of high irradiance and low wind.
 
-If true and sufficient ==> the negative differences should be inexistant or at least less pronounced at __night__
+If this supposition is true and is the only explanation ==> the negative differences should be inexistant or at least less pronounced at __night__
 
 ## Bland-Altman Plot : night only situations
 ```{r}
@@ -185,6 +183,29 @@ night_only$blandAltman$bland_altman.plot
 * The scatter still presents a trend going from positive bias to negative bias.
 
 * ==> The ventilation system is not the only explanation to the proportional bias. The sensitivity of the sensors themselves and/or non-linear differences in radiation transfer effects from the shelters towards the sensors could also possibly explain the observed differences.
+
+* ==> The ventilation system could however play a significant role during the time of the day were the radiation is at its maximum. What happens around daily max temperature values ? 
+
+## Bland-Altman Plot : daily max +/- 2h situations
+```{r}
+daily_max_pm2_only$blandAltman$bland_altman.plot
+```
+
+## BA daily max +/- 2h situations - interpretation 
+
+* For most individuals, measurements made by 2 stations are more likely to be far apart in a range comprised between [`r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.  
+
+* 0 is not in the 95% CI of the mean difference [`r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean negative __bias__ of `r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[1,3],2)` (Pameseb globally warmer)
+
+* The scatter still presents a negative trend but __no more positive bias__ (Pameseb is always warmer).
+
+* ==> The ventilation system seems to effectively play a role when the received radiation is at its maximum.
+
+## Temperature difference Summary 
+
+* The lack of ventilation system at Pameseb is not the only explanation to the BA plot pattern observed when taking all the records in account. 
+* It is however able to explain what is going on around the daily_max temperature values
+* But we need to invoke a second physical process able to explain the mean positive bias for the temperature below 10°C : radiative effect of the wood shelter ? Warmer air from below blown in the shelter ? 
 
 # Solving the disagreement
 
