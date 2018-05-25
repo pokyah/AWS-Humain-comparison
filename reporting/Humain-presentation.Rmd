@@ -4,9 +4,19 @@ author: "t.goossens@cra.wallonie.be"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 always_allow_html: yes
 output:
-  odt_document:
-    fig_height: 5
-    fig_width: 7
+  revealjs::revealjs_presentation:
+    css:
+      - "~/Documents/code/agrometeor/agrometeor-reveal-template/theme/craw.css"
+    center: no
+    highlight: pygments
+    incremental: yes
+    self_contained: true
+    slide_level: 2
+    theme: default
+    transition: slide
+    fig_caption: false
+    reveal_options:
+      previewLinks: false
   md_document:
     toc: no
     toc_depth: 6
@@ -22,19 +32,9 @@ output:
     toc_float:
       collapsed: yes
       smooth_scroll: yes
-  revealjs::revealjs_presentation:
-    css:
-      - "~/Documents/code/agrometeor/agrometeor-reveal-template/theme/craw.css"
-    center: no
-    highlight: pygments
-    incremental: yes
-    self_contained: true
-    slide_level: 2
-    theme: default
-    transition: slide
-    fig_caption: false
-    reveal_options:
-      previewLinks: false
+  odt_document:
+    fig_height: 5
+    fig_width: 7
 ---
 
 ```{r setup, include=FALSE}
@@ -185,6 +185,8 @@ night_only$blandAltman$bland_altman.plot
 
 * The scatter still presents a trend going from positive bias to negative bias.
 
+----
+
 * ==> The ventilation system is not the only explanation to the proportional bias. The sensitivity of the sensors themselves and/or non-linear differences in radiation transfer effects from the shelters towards the sensors could also possibly explain the observed differences.
 
 * ==> The ventilation system could however play a significant role during the time of the day were the radiation is at its maximum. What happens around daily max temperature values ? 
@@ -246,9 +248,19 @@ plotBMRSummary(rnd.bmr.l)
 
 * For the __non-specific__ approach, the learner that performs the best is the linear regression with a mse of `r getBMRAggrPerformances(rnd.bmr.l)$regr.all.rnd$regr.lm`
 
-* For the __daily temperature peaks__ approach, the learner that performs the best is the Fast k-Nearest Neighbor with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`
+* For the __daily temperature peaks__ approach, the learner that performs the best is the Fast [k-Nearest Neighbor](https://www.youtube.com/watch?v=3lp5CmSwrHI) with a mse of `r getBMRAggrPerformances(hci.bmr.l)$regr.all.hci$regr.fnn`. By definition it tries to approximate based on some __local vicinity__ (peaks).
 
-* ==> What is the best correction approach ? Let's compare the predictions outputs
+## Best regression model - daily temperature peaks
+
+```{r}
+print(summary(rnd.bmr.l$results$regr.all.rnd$regr.fnn$models[[1]]$learner.model$train))
+```
+
+## Coefficients of the best regression models - Non specific approach
+
+```{r}
+print(summary(rnd.bmr.l$results$regr.all.rnd$regr.lm$models[[1]]$learner.model))
+```
 
 ## Corrected Bland-Altman Plot - non-specific
 
@@ -346,7 +358,7 @@ Copyright : Thomas Goossens - t.goossens@cra.wallonie.be 2018.
   
   
   
-  
+  summary(hci.bmr.l$results$regr.ens_vvt.hci$regr.lm$models[[1]]$learner.model)
   
   
   

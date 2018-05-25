@@ -256,11 +256,9 @@
       daily_max_pm2_only$records.df <- daily_max_pm2_only$records.df %>%
         mutate_at("key", as.numeric)
       
-      non_daily_max_pm2_only <- compare_data(records.df = records.df, filter.chr="non_daily_max_only")
+    # ::todo::  non_daily_max_pm2_only <- compare_data(records.df = records.df, filter.chr="non_daily_max_only")
     # creating a joining key var and making it numeric
-      daily_max_pm2_only$records.df <- rownames_to_column(df = daily_max_pm2_only$records.df, var = "key" )
-      daily_max_pm2_only$records.df <- daily_max_pm2_only$records.df %>%
-        mutate_at("key", as.numeric)
+
       
       
       # low_rad_high_wind_up10 <- compare_data(records.df = records.df, filter.chr="low_rad_high_wind_up10")
@@ -436,8 +434,8 @@
             )
           
           # Conduct the benchmark experiment
-            hci.bmr.l <- benchmark(learners = lrns.l, tasks = hci.regr.tasks.l, resamplings = hci.rsmpls.l)
-            rnd.bmr.l <- benchmark(learners = lrns.l, tasks = rnd.regr.tasks.l, resamplings = rnd.rsmpls.l)
+            hci.bmr.l <- benchmark(learners = lrns.l, tasks = hci.regr.tasks.l, resamplings = hci.rsmpls.l, models=TRUE)
+            rnd.bmr.l <- benchmark(learners = lrns.l, tasks = rnd.regr.tasks.l, resamplings = rnd.rsmpls.l, models=TRUE)
 
     #+ ---------------------------------
     #' ### Pameseb61 observed temperature corrections using the tsa_diff prediction models.
