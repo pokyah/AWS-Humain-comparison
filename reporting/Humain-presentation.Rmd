@@ -54,6 +54,7 @@ require(plotly)
 require(knitr)
 require(broom)
 require(mlr)
+require(dplyr)
 
 # Defining the .Rmd settings - https://github.com/yihui/knitr/issues/277
 knitr::opts_chunk$set(
@@ -92,7 +93,7 @@ htmltools::tagList(rmarkdown::html_dependency_font_awesome())
 ## Statistics : 
 
 ```{r}
-kable(no_extra_filter$statistics.l$tsa_stats.df, caption= "tsa summary stats", digits=2)
+kable(dplyr::select(data.frame(no_extra_filter$statistics.l$tsa_stats.df), one_of(c("sid", "mean", "min", "max", "sd", "var", "q25", "q50", "q75"))), caption= "tsa summary stats", digits=2)
 ```
 
 ## Time series - full
@@ -119,6 +120,14 @@ no_extra_filter$plots$densities.plot$tsa.dens.plot
 ```{r fig.cap = "Scatter plot"}
 no_extra_filter$plots$scatters.plot$tsa.scatter.plot
 ```
+----
+```{r}
+station61 <- dplyr::filter(no_extra_filter$records.df, sid==61)$tsa
+station1000 <- dplyr::filter(no_extra_filter$records.df, sid==1000)$tsa
+scatter.model <- lm(station61 ~ station1000)
+print(summary(scatter.model))
+```
+
 
 # First insights
 
@@ -136,7 +145,7 @@ Datasets seem in accordance ...
 
 ## Bland-Altman analysis - concept
 
-We can use a [Bland Altman analysis](https://pokyah.github.io/howto/assessing-the-agreement-between-2-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/) to measure the agreement level between the 2 stations
+We can use a [Bland Altman analysis](https://pokyah.github.io/howto/assessing-the-agreement-between-two-quantitative-methods-of-measurements-understanding-the-Bland-Altman-analysis/) to measure the agreement level between the 2 stations
 
 It consists to take observations pair by pair and to plot their __means__ vs. their __differences__.
 
@@ -152,7 +161,7 @@ no_extra_filter$blandAltman$bland_altman.plot
 
 * For most individuals, measurements made by 2 stations are __more likely to be far apart__ between [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,2], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,4], 2)`] °C.
 
-* 0 is not in the 95% CI of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean negative __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)`
+* 0 is not in the 95% [CI](https://www.mathsisfun.com/data/confidence-interval.html) of the mean difference [`r signif(no_extra_filter$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean negative __bias__ of `r signif(no_extra_filter$blandAltman$bland_altman.stats.df[1,3],2)`
 
 * The scatter presents a __negative trend__ going from positive bias to negative bias ==> proportional bias. The methods do not agree equally through the range of measurements. The highest absolute differences are observed at the highest mean temperatures.
 
@@ -355,10 +364,4 @@ Copyright : Thomas Goossens - t.goossens@cra.wallonie.be 2018.
     
   });
 </script>
-  
-  
-  
-  summary(hci.bmr.l$results$regr.ens_vvt.hci$regr.lm$models[[1]]$learner.model)
-  
-  
   
