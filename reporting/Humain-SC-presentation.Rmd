@@ -167,24 +167,27 @@ The 2 stations are equipped with different temperature sensors and are actually 
 # 5. investigating the potential effect of the mechanical ventilation
 
 ## 5.1. Bland-Altman Plot : night only situations
+
 ```{r}
 night_only$blandAltman$bland_altman.plot
 ```
 
-----
+---- 
 
 * 0 is not in the 95% CI of the mean difference [`r signif(night_only$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(night_only$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean positive __bias__ of `r signif(night_only$blandAltman$bland_altman.stats.df[1,3],2)` (IRM globally warmer than Pameseb this time)
 * The scatter still presents a negative trend but going from positive bias to __less negative bias__ 
 
 ## 5.2. Bland-Altman Plot : daily max +/- 2h situations
+
 ```{r}
 daily_max_pm2_only$blandAltman$bland_altman.plot
 ```
+
 ----
+
 * 0 is not in the 95% CI of the mean difference [`r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[2,6], 2)` ; `r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[4,6], 2)` ] ==> It exists a mean negative __bias__ of `r signif(daily_max_pm2_only$blandAltman$bland_altman.stats.df[1,3],2)` (Pameseb globally warmer again)
 * The scatter still presents a negative trend but going from __less positive bias__ 
 
-----
 
 ## 5.3. Bland-Altman plots analysis conclusion
 
@@ -206,9 +209,9 @@ daily_max_pm2_only$blandAltman$bland_altman.plot
 
 We can use 2 correction strategies : 
 
-* 1st focusing on the __daily_max +/- 2h__ differences : only corrects observations corresponding to `[-2h; daily max ; +2h]` ==>  __train__ set = observations corresponding to High [clearness index](https://www.homerenergy.com/products/pro/docs/3.11/clearness_index.html) values (`ci > q70(ci)`) and __test__ set = observations corresponding to `[-2h; daily max ; +2h]`
+* 1st focusing on the __daily_max +/- 2h__ differences : only corrects observations corresponding to `[-2h; daily max ; +2h]` ==>  <br><small>__train__ set = observations corresponding to High [clearness index](https://www.homerenergy.com/products/pro/docs/3.11/clearness_index.html) values (`ci > q70(ci)`) and __test__ set = observations corresponding to `[-2h; daily max ; +2h]`</small>
 
-* 2nd __non-specific__ approach of the temperature differences. ==> __train__ and __test__ sets = random split ("holdout") of the whole dataset.
+* 2nd __non-specific__ approach of the temperature differences. ==><br><small> __train__ and __test__ sets = random split ("holdout") of the whole dataset.</small>
 
 ## 6.3. Predictive performance of the models -  daily_max +/- 2h 
 
