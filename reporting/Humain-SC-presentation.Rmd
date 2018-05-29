@@ -290,7 +290,7 @@ rnd.ts.corr.plots.l$regr.lm$regr.all.rnd$january.ts.plot
 
 ## Perspectives
 * improvement 1 : develop 2 correction models ==> one below 10°C and another one above 10°C ?
-* Further work : can this correction process be applied asis to all our stations ? For this purpose, we can could compare irradiance patterns from [close stations](https://app.pameseb.be/fr/stations-pameseb/) : (Ernage vs. Sombreffe) + (Buzenol vs. Ruette). if they behave the same as Humain ==> correction model transposable
+* Further work : can this correction process be applied asis to all our stations ? For this purpose, we could compare irradiance patterns from [close stations](https://app.pameseb.be/fr/stations-pameseb/) : (Ernage vs. Sombreffe) + (Buzenol vs. Ruette). if they behave the same as Humain ==> correction model transposable
 * Once finished, we plan to submit this work to the ["Weather" Journal of the RMETS](http://rmets.onlinelibrary.wiley.com/hub/journal/10.1002/(ISSN)1477-8696/aims-and-scope/read-full-aims-and-scope.html) : *Quantitative intercomparison of 2 years hourly records of temperature and relative humidity measured by 2 different types of professional-grade automatic weather stations at Humain, Belgium*
     
 
